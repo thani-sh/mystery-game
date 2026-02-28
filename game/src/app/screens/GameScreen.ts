@@ -76,12 +76,12 @@ export class GameScreen extends Container {
 
   private async loadAndInitActors() {
     // Load Bets (Player)
-    await Assets.load("/assets/actors/bets/idle.json");
-    await Assets.load("/assets/actors/bets/walk.json");
+    await Assets.load("/assets/actors/bets/frames/idle.json");
+    await Assets.load("/assets/actors/bets/frames/walk.json");
 
     // Load Goon
-    await Assets.load("/assets/actors/goon/idle.json");
-    await Assets.load("/assets/actors/goon/walk.json");
+    await Assets.load("/assets/actors/goon/frames/idle.json");
+    await Assets.load("/assets/actors/goon/frames/walk.json");
 
     this.initActors();
   }
@@ -115,7 +115,7 @@ export class GameScreen extends Container {
   private initActors() {
     // Player
     const playerFrames = Assets.cache.get(
-      "/assets/actors/bets/idle.json",
+      "/assets/actors/bets/frames/idle.json",
     ).animations;
     this.playerSprite = new AnimatedSprite(playerFrames.down);
     const playerScale = characters["bets"]?.scale ?? 1;
@@ -134,7 +134,7 @@ export class GameScreen extends Container {
     // NPCs
     for (const char of this.levelData.characters) {
       // For POC, assuming all characters have an idle animation and look down
-      const frames = Assets.cache.get(`/assets/actors/${char.id}/idle.json`)
+      const frames = Assets.cache.get(`/assets/actors/${char.id}/frames/idle.json`)
         ?.animations?.down;
       if (!frames) {
         console.error(`Could not load frames for character ${char.id}`);

@@ -5,12 +5,58 @@ import sharp from "sharp";
 
 // Paths relative to the project root
 const ASSETS_DIR = resolve(import.meta.dir, "../../../assets");
-const TARGET_DIR = resolve(import.meta.dir, "../../../game/raw-assets/main");
+const TARGET_DIR = resolve(import.meta.dir, "../../../game/public/assets");
+
+import { writeFile } from "fs/promises";
 
 interface ProcessOptions {
   removeBackground: boolean;
   sourcePath: string;
   targetPath: string;
+}
+
+/**
+ * Generate a JSON sprite definition for character frames
+ * Assumes a 4x4 grid (16 frames) with dimensions 1024x1024 and 256x256 frames
+ */
+async function generateSpriteJson(
+  imagePath: string,
+  targetJsonPath: string,
+): Promise<void> {
+  const imageName = relative(dirname(imagePath), imagePath);
+
+  // Standard 4x4 grid layout for walk/idle animations
+  const spriteDef = {
+    frames: {} as Record<string, any>,
+    animations: {
+      down: ["frame_0", "frame_1", "frame_2", "frame_3"],
+      left: ["frame_4", "frame_5", "frame_6", "frame_7"],
+      right: ["frame_8", "frame_9", "frame_10", "frame_11"],
+      up: ["frame_12", "frame_13", "frame_14", "frame_15"],
+    },
+    meta: {
+      image: imageName,
+      format: "RGBA8888",
+      size: { w: 1024, h: 1024 },
+      scale: "1",
+    },
+  };
+
+  // Generate the 16 frames
+  for (let i = 0; i < 16; i++) {
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    const x = col * 256;
+    const y = row * 256;
+
+    spriteDef.frames[`frame_${i}`] = {
+      frame: { x, y, w: 256, h: 256 },
+      sourceSize: { w: 256, h: 256 },
+      spriteSourceSize: { x: 0, y: 0, w: 256, h: 256 },
+    };
+  }
+
+  await writeFile(targetJsonPath, JSON.stringify(spriteDef, null, 2), "utf8");
 }
 
 /**
@@ -54,7 +100,11 @@ async function removeBackground(
     // Otherwise, create alpha channel based on color similarity to white
     if (metadata.hasAlpha) {
       // Enhance existing transparency
-      await image.ensureAlpha().normalise().toFile(outputPath);
+      await image
+        .ensureAlpha()
+        .normalise()
+        .png({ compressionLevel: 9, effort: 10 })
+        .toFile(outputPath);
     } else {
       // Create transparency for near-white pixels
       // This uses a threshold approach: pixels close to white become transparent
@@ -79,7 +129,7 @@ async function removeBackground(
           channels: info.channels as 3 | 4,
         },
       })
-        .png()
+        .png({ compressionLevel: 9, effort: 10 })
         .toFile(outputPath);
     }
   } catch (error) {
@@ -99,12 +149,24 @@ async function processAsset(options: ProcessOptions): Promise<void> {
 
   if (shouldRemoveBg) {
     console.log(
-      `  📸 Processing with background removal: ${relative(ASSETS_DIR, sourcePath)}`,
+      `  📸 Processing with background removal and optimization: ${relative(ASSETS_DIR, sourcePath)}`,
     );
     await removeBackground(sourcePath, targetPath);
+  } else if (sourcePath.toLowerCase().endsWith(".png")) {
+    console.log(`  🗜️ Optimizing PNG: ${relative(ASSETS_DIR, sourcePath)}`);
+    await sharp(sourcePath)
+      .png({ compressionLevel: 9, effort: 10 })
+      .toFile(targetPath);
   } else {
     console.log(`  📋 Copying as-is: ${relative(ASSETS_DIR, sourcePath)}`);
     await Bun.write(targetPath, Bun.file(sourcePath));
+  }
+
+  // Generate sprite JSON for images in the frames directory
+  if (sourcePath.includes("/frames/")) {
+    const targetJsonPath = targetPath.replace(/\.(png|jpg|jpeg|webp)$/i, ".json");
+    console.log(`  📝 Generating sprite JSON: ${relative(ASSETS_DIR, targetJsonPath)}`);
+    await generateSpriteJson(targetPath, targetJsonPath);
   }
 }
 
