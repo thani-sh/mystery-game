@@ -9,34 +9,30 @@ export interface CharacterData {
   sprite: string;
 }
 
+export interface Action {
+  type: "move_character";
+  characterId: string;
+  target: Position;
+}
+
 export interface DialogueChoice {
   text: string;
-  nextNodeId?: string;
-  action?: {
-    type: "move_character";
-    characterId: string;
-    target: Position;
-  };
+  next?: string;
+  action?: Action;
+  scriptId?: string;
 }
 
 export interface DialogueNode {
-  id: string;
   speaker: string; // Character ID
   text: string;
-  choices: DialogueChoice[];
-}
-
-export interface DialogueTree {
-  id: string;
-  startNodeId: string;
-  nodes: Record<string, DialogueNode>;
+  choices?: DialogueChoice[];
 }
 
 export interface MapCharacter {
   id: string; // references CharacterData.id
   position: Position;
   interactable: boolean;
-  dialogueId?: string; // references DialogueTree.id
+  dialogueStart?: string; // references root DialogueNode key in dialogues
 }
 
 export interface LevelData {
@@ -47,4 +43,6 @@ export interface LevelData {
   tiles: number[][];
   characters: MapCharacter[];
   playerStart: Position;
+  dialogues?: Record<string, DialogueNode>;
+  scripts?: Record<string, Action[]>;
 }

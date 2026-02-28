@@ -1,8 +1,24 @@
 import { Container, Graphics, Text } from "pixi.js";
-import { LevelData, DialogueTree, Position } from "../../game/data/types";
+import {
+  LevelData,
+  Position,
+  CharacterData,
+  Action,
+} from "../../game/data/types";
 import { InputSystem } from "../../engine/utils/Input";
 
 const TILE_SIZE = 64;
+
+// Load all characters dynamically
+const characterFiles = import.meta.glob("../../game/data/characters/*.json", {
+  eager: true,
+});
+const characters: Record<string, CharacterData> = {};
+for (const path in characterFiles) {
+  const file = characterFiles[path] as Record<string, unknown>;
+  const data = (file.default || file) as CharacterData;
+  characters[data.id] = data;
+}
 
 export class GameScreen extends Container {
   private levelData: LevelData;
@@ -15,7 +31,6 @@ export class GameScreen extends Container {
   private dialogueText: Text;
   private choiceTexts: Text[] = [];
 
-  private currentDialogue: DialogueTree | null = null;
   private currentDialogueNodeId: string | null = null;
 
   private actorSprites: Record<string, Graphics> = {};
@@ -117,7 +132,7 @@ export class GameScreen extends Container {
   }
 
   public update(delta: number) {
-    if (this.currentDialogue) {
+    if (this.currentDialogueNodeId) {
       this.handleDialogueInput();
       return; // Stop game loop if in dialogue
     }
@@ -157,8 +172,8 @@ export class GameScreen extends Container {
       } else {
         // Check interact
         const char = this.getCharacterAt(newX, newY);
-        if (char && char.interactable && char.dialogueId) {
-          this.startDialogue(char.dialogueId);
+        if (char && char.interactable && char.dialogueStart) {
+          this.startDialogue(char.dialogueStart);
           this.moveTimer = 20; // cooldown to prevent instant skip
         }
       }
@@ -186,37 +201,33 @@ export class GameScreen extends Container {
     );
   }
 
-  private startDialogue(dialogueId: string) {
-    // we need to import dialogue data, since it's a mock let's just use the global
-    import("../../game/data/poc-data").then((data) => {
-      this.currentDialogue = data.dialogue[dialogueId];
-      if (this.currentDialogue) {
-        this.currentDialogueNodeId = this.currentDialogue.startNodeId;
-        this.dialogueBox.visible = true;
-        this.renderDialogueNode();
-      }
-    });
+  private startDialogue(dialogueStart: string) {
+    if (this.levelData.dialogues && this.levelData.dialogues[dialogueStart]) {
+      this.currentDialogueNodeId = dialogueStart;
+      this.dialogueBox.visible = true;
+      this.renderDialogueNode();
+    }
   }
 
   private renderDialogueNode() {
-    if (!this.currentDialogue || !this.currentDialogueNodeId) return;
+    if (!this.currentDialogueNodeId || !this.levelData.dialogues) return;
 
-    const node = this.currentDialogue.nodes[this.currentDialogueNodeId];
+    const node = this.levelData.dialogues[this.currentDialogueNodeId];
     if (!node) {
       this.endDialogue();
       return;
     }
 
     // Set speaker name + text
-    import("../../game/data/poc-data").then((data) => {
-      const speakerName = data.characters[node.speaker]?.name || node.speaker;
-      this.dialogueText.text = `${speakerName}: ${node.text}`;
+    const speakerName = characters[node.speaker]?.name || node.speaker;
+    this.dialogueText.text = `${speakerName}: ${node.text}`;
 
-      // Clear old choices
-      this.choiceTexts.forEach((t) => t.destroy());
-      this.choiceTexts = [];
+    // Clear old choices
+    this.choiceTexts.forEach((t) => t.destroy());
+    this.choiceTexts = [];
 
-      // Render new choices
+    // Render new choices
+    if (node.choices && node.choices.length > 0) {
       node.choices.forEach((choice, idx) => {
         const choiceText = new Text({
           text: `${idx + 1}. ${choice.text}`,
@@ -226,38 +237,44 @@ export class GameScreen extends Container {
         this.dialogueBox.addChild(choiceText);
         this.choiceTexts.push(choiceText);
       });
-    });
+    } else {
+      const choiceText = new Text({
+        text: `1. Continue`,
+        style: { fontSize: 20, fill: 0xaaaaaa },
+      });
+      choiceText.position.set(40, 80);
+      this.dialogueBox.addChild(choiceText);
+      this.choiceTexts.push(choiceText);
+    }
   }
 
   private handleDialogueInput() {
-    if (!this.currentDialogue || !this.currentDialogueNodeId) return;
-    const node = this.currentDialogue.nodes[this.currentDialogueNodeId];
+    if (!this.currentDialogueNodeId || !this.levelData.dialogues) return;
+    const node = this.levelData.dialogues[this.currentDialogueNodeId];
     if (!node) return;
 
-    for (let i = 0; i < node.choices.length; i++) {
+    const choices =
+      node.choices && node.choices.length > 0
+        ? node.choices
+        : [{ text: "Continue" }];
+
+    for (let i = 0; i < choices.length; i++) {
       if (this.input.isKeyDown((i + 1).toString())) {
-        const choice = node.choices[i];
+        const choice = choices[i];
 
         if (choice.action) {
-          if (choice.action.type === "move_character") {
-            const char = this.levelData.characters.find(
-              (c) => c.id === choice.action!.characterId,
-            );
-            if (char) {
-              char.position = { ...choice.action.target };
-              // update sprite
-              if (this.actorSprites[char.id]) {
-                this.actorSprites[char.id].position.set(
-                  char.position.x * TILE_SIZE + TILE_SIZE * 0.1,
-                  char.position.y * TILE_SIZE + TILE_SIZE * 0.1,
-                );
-              }
-            }
+          this.executeAction(choice.action);
+        }
+
+        if (choice.scriptId && this.levelData.scripts) {
+          const script = this.levelData.scripts[choice.scriptId];
+          if (script) {
+            script.forEach((action) => this.executeAction(action));
           }
         }
 
-        if (choice.nextNodeId) {
-          this.currentDialogueNodeId = choice.nextNodeId;
+        if (choice.next) {
+          this.currentDialogueNodeId = choice.next;
           this.renderDialogueNode();
           this.input.clear(); // clear keys so we don't double trigger
           return;
@@ -270,8 +287,25 @@ export class GameScreen extends Container {
     }
   }
 
+  private executeAction(action: Action) {
+    if (action.type === "move_character") {
+      const char = this.levelData.characters.find(
+        (c) => c.id === action.characterId,
+      );
+      if (char) {
+        char.position = { ...action.target };
+        // update sprite
+        if (this.actorSprites[char.id]) {
+          this.actorSprites[char.id].position.set(
+            char.position.x * TILE_SIZE + TILE_SIZE * 0.1,
+            char.position.y * TILE_SIZE + TILE_SIZE * 0.1,
+          );
+        }
+      }
+    }
+  }
+
   private endDialogue() {
-    this.currentDialogue = null;
     this.currentDialogueNodeId = null;
     this.dialogueBox.visible = false;
   }

@@ -1,7 +1,10 @@
 import { Application } from "pixi.js";
 import { GameScreen } from "./app/screens/GameScreen";
-import { level } from "./game/data/poc-data";
+import levelData from "./game/data/levels/village_crossroads.json";
+import { LevelData } from "./game/data/types";
 import { InputSystem } from "./engine/utils/Input";
+
+const level = levelData as LevelData;
 
 (async () => {
   // Initialize input
