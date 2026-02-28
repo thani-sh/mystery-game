@@ -33,17 +33,22 @@ export class GameScreen extends Container {
 
   private currentDialogueNodeId: string | null = null;
 
-  // We change these to track AnimatedSprites instead of primitives
   private actorSprites: Record<string, AnimatedSprite> = {};
   private playerSprite!: AnimatedSprite;
 
   private moveTimer: number = 0;
+  private readonly MOVE_DURATION: number = 15;
+  private playerStartMovePos: Position;
+  private playerDirection: "down" | "up" | "left" | "right" = "down";
+  private playerState: "idle" | "walk" = "idle";
+
   private input: InputSystem;
 
   constructor(levelData: LevelData) {
     super();
     this.levelData = levelData;
     this.playerPos = { ...levelData.playerStart };
+    this.playerStartMovePos = { ...levelData.playerStart };
     this.input = InputSystem.getInstance();
 
     this.mapContainer = new Container();
@@ -123,6 +128,7 @@ export class GameScreen extends Container {
     this.playerSprite.height = TILE_SIZE * playerScale;
     // Anchor to bottom-center so the character stands on their tile
     this.playerSprite.anchor.set(0.5, 1.0);
+    this.playerSprite.animationSpeed = 0.1;
     this.playerSprite.position.set(
       this.playerPos.x * TILE_SIZE + TILE_SIZE / 2,
       this.playerPos.y * TILE_SIZE + TILE_SIZE,
@@ -133,13 +139,13 @@ export class GameScreen extends Container {
 
     // NPCs
     for (const char of this.levelData.characters) {
-      // For POC, assuming all characters have an idle animation and look down
-      const frames = Assets.cache.get(`/assets/actors/${char.id}/frames/idle.json`)
-        ?.animations?.down;
-      if (!frames) {
-        console.error(`Could not load frames for character ${char.id}`);
-        continue;
-      }
+      // Set NPCs to look down and face idle by default
+      const frames = Assets.cache.get(
+        `/assets/actors/${char.id}/frames/idle.json`,
+      )?.animations?.down || [Graphics]; // Fallback if missing
+
+      // Avoid crash if assets missing
+      if (!frames || frames.length === 0) continue;
 
       const sprite = new AnimatedSprite(frames);
       const charScale = characters[char.id]?.scale ?? 1;
@@ -160,6 +166,23 @@ export class GameScreen extends Container {
 
     // Initial camera update
     this.updateCamera();
+  }
+
+  private setActorAnimation(
+    sprite: AnimatedSprite,
+    actorId: string,
+    state: "idle" | "walk",
+    direction: "down" | "up" | "left" | "right",
+  ) {
+    const sheetKey = `/assets/actors/${actorId}/frames/${state}.json`;
+    const sheet = Assets.cache.get(sheetKey);
+    if (!sheet || !sheet.animations) return;
+
+    const frames = sheet.animations[direction];
+    if (frames && sprite.textures !== frames) {
+      sprite.textures = frames;
+      sprite.play();
+    }
   }
 
   private initUI() {
@@ -183,6 +206,15 @@ export class GameScreen extends Container {
 
   public update(delta: number) {
     if (this.currentDialogueNodeId) {
+      if (this.playerState === "walk") {
+        this.playerState = "idle";
+        this.setActorAnimation(
+          this.playerSprite,
+          "bets",
+          this.playerState,
+          this.playerDirection,
+        );
+      }
       this.handleDialogueInput();
       return; // Stop game loop if in dialogue
     }
@@ -191,44 +223,105 @@ export class GameScreen extends Container {
   }
 
   private handleMovement(delta: number) {
-    this.moveTimer -= delta;
-    if (this.moveTimer > 0) return;
+    if (this.moveTimer > 0) {
+      this.moveTimer -= delta;
 
-    let dx = 0;
-    let dy = 0;
+      // Interpolate position
+      const progress = 1 - Math.max(0, this.moveTimer / this.MOVE_DURATION);
+      const visualX =
+        this.playerStartMovePos.x +
+        (this.playerPos.x - this.playerStartMovePos.x) * progress;
+      const visualY =
+        this.playerStartMovePos.y +
+        (this.playerPos.y - this.playerStartMovePos.y) * progress;
 
-    if (this.input.isKeyDown("ArrowUp") || this.input.isKeyDown("w")) dy = -1;
-    else if (this.input.isKeyDown("ArrowDown") || this.input.isKeyDown("s"))
-      dy = 1;
-    else if (this.input.isKeyDown("ArrowLeft") || this.input.isKeyDown("a"))
-      dx = -1;
-    else if (this.input.isKeyDown("ArrowRight") || this.input.isKeyDown("d"))
-      dx = 1;
+      this.playerSprite.position.set(
+        visualX * TILE_SIZE + TILE_SIZE / 2,
+        visualY * TILE_SIZE + TILE_SIZE,
+      );
+      this.playerSprite.zIndex = this.playerSprite.y;
+      this.updateCamera(visualX, visualY);
 
-    if (dx !== 0 || dy !== 0) {
-      const newX = this.playerPos.x + dx;
-      const newY = this.playerPos.y + dy;
-
-      if (this.canMoveTo(newX, newY)) {
-        this.playerPos.x = newX;
-        this.playerPos.y = newY;
-
-        // simple animate
+      if (this.moveTimer <= 0) {
+        // Snap to grid at end of movement
         this.playerSprite.position.set(
           this.playerPos.x * TILE_SIZE + TILE_SIZE / 2,
           this.playerPos.y * TILE_SIZE + TILE_SIZE,
         );
-        this.playerSprite.zIndex = this.playerSprite.y;
-        this.updateCamera();
-        this.moveTimer = 10; // ~160ms cooldown at 60fps
+        this.playerState = "idle";
+        this.setActorAnimation(
+          this.playerSprite,
+          "bets",
+          this.playerState,
+          this.playerDirection,
+        );
+      }
+      return;
+    }
+
+    let dx = 0;
+    let dy = 0;
+    let newDirection = this.playerDirection;
+
+    if (this.input.isKeyDown("ArrowUp") || this.input.isKeyDown("w")) {
+      dy = -1;
+      newDirection = "up";
+    } else if (this.input.isKeyDown("ArrowDown") || this.input.isKeyDown("s")) {
+      dy = 1;
+      newDirection = "down";
+    } else if (this.input.isKeyDown("ArrowLeft") || this.input.isKeyDown("a")) {
+      dx = -1;
+      newDirection = "left";
+    } else if (
+      this.input.isKeyDown("ArrowRight") ||
+      this.input.isKeyDown("d")
+    ) {
+      dx = 1;
+      newDirection = "right";
+    }
+
+    if (dx !== 0 || dy !== 0) {
+      this.playerDirection = newDirection;
+      const newX = this.playerPos.x + dx;
+      const newY = this.playerPos.y + dy;
+
+      if (this.canMoveTo(newX, newY)) {
+        this.playerStartMovePos = { ...this.playerPos };
+        this.playerPos.x = newX;
+        this.playerPos.y = newY;
+
+        this.moveTimer = this.MOVE_DURATION;
+        this.playerState = "walk";
+        this.setActorAnimation(
+          this.playerSprite,
+          "bets",
+          this.playerState,
+          this.playerDirection,
+        );
       } else {
+        // Prevent sliding into a wall but update direction
+        this.setActorAnimation(
+          this.playerSprite,
+          "bets",
+          "idle",
+          this.playerDirection,
+        );
+
         // Check interact
         const char = this.getCharacterAt(newX, newY);
         if (char && char.interactable && char.dialogueStart) {
           this.startDialogue(char.dialogueStart);
-          this.moveTimer = 20; // cooldown to prevent instant skip
+          this.moveTimer = this.MOVE_DURATION; // cooldown to prevent instant skip
         }
       }
+    } else if (this.playerState === "walk") {
+      this.playerState = "idle";
+      this.setActorAnimation(
+        this.playerSprite,
+        "bets",
+        this.playerState,
+        this.playerDirection,
+      );
     }
   }
 
@@ -368,7 +461,10 @@ export class GameScreen extends Container {
     this.dialogueBox.visible = false;
   }
 
-  private updateCamera() {
+  private updateCamera(
+    visualTargetX: number = this.playerPos.x,
+    visualTargetY: number = this.playerPos.y,
+  ) {
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
 
@@ -376,10 +472,9 @@ export class GameScreen extends Container {
     const mapHeight = this.levelData.height * TILE_SIZE;
 
     // Target camera position (center on player)
-    let targetX =
-      screenWidth / 2 - (this.playerPos.x * TILE_SIZE + TILE_SIZE / 2);
+    let targetX = screenWidth / 2 - (visualTargetX * TILE_SIZE + TILE_SIZE / 2);
     let targetY =
-      screenHeight / 2 - (this.playerPos.y * TILE_SIZE + TILE_SIZE / 2);
+      screenHeight / 2 - (visualTargetY * TILE_SIZE + TILE_SIZE / 2);
 
     // Clamp camera so it doesn't show outside the map
     if (mapWidth > screenWidth) {
