@@ -71,19 +71,27 @@ export class GameScreen extends Container {
   }
 
   private initMap() {
-    for (let y = 0; y < this.levelData.height; y++) {
-      for (let x = 0; x < this.levelData.width; x++) {
-        const tileType = this.levelData.tiles[y][x];
-        const rect = new Graphics();
+    for (const layer of this.levelData.tiles) {
+      for (let y = 0; y < this.levelData.height; y++) {
+        for (let x = 0; x < this.levelData.width; x++) {
+          const tileType = layer[y][x];
+          if (tileType === 0) continue;
 
-        if (tileType === 0) {
-          rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x228b22); // grass
-        } else {
-          rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x808080); // road
+          const rect = new Graphics();
+
+          if (tileType === 1) {
+            rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x228b22); // grass
+          } else if (tileType === 2) {
+            rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x808080); // road
+          } else if (tileType === 3) {
+            rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x006400); // tree
+          } else {
+            rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0xff00ff); // unknown
+          }
+
+          rect.position.set(x * TILE_SIZE, y * TILE_SIZE);
+          this.mapContainer.addChild(rect);
         }
-
-        rect.position.set(x * TILE_SIZE, y * TILE_SIZE);
-        this.mapContainer.addChild(rect);
       }
     }
   }
@@ -168,6 +176,7 @@ export class GameScreen extends Container {
           this.playerPos.x * TILE_SIZE + TILE_SIZE * 0.1,
           this.playerPos.y * TILE_SIZE + TILE_SIZE * 0.1,
         );
+        this.updateCamera();
         this.moveTimer = 10; // ~160ms cooldown at 60fps
       } else {
         // Check interact
@@ -188,7 +197,12 @@ export class GameScreen extends Container {
       y >= this.levelData.height
     )
       return false;
-    if (this.levelData.tiles[y][x] === 0) return false; // obstacle
+
+    // Check all layers for obstacles (1: grass, 3: tree)
+    for (const layer of this.levelData.tiles) {
+      const tileType = layer[y][x];
+      if (tileType === 1 || tileType === 3) return false;
+    }
 
     if (this.getCharacterAt(x, y)) return false;
 
@@ -310,21 +324,39 @@ export class GameScreen extends Container {
     this.dialogueBox.visible = false;
   }
 
-  // Handle window resize
-  public resize(width: number, height: number) {
-    this.dialogueBox.position.set((width - 800) / 2, height - 250);
+  private updateCamera() {
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
 
-    // Center map
     const mapWidth = this.levelData.width * TILE_SIZE;
     const mapHeight = this.levelData.height * TILE_SIZE;
 
-    this.mapContainer.position.set(
-      (width - mapWidth) / 2,
-      (height - mapHeight) / 2,
-    );
-    this.actorsContainer.position.set(
-      (width - mapWidth) / 2,
-      (height - mapHeight) / 2,
-    );
+    // Target camera position (center on player)
+    let targetX =
+      screenWidth / 2 - (this.playerPos.x * TILE_SIZE + TILE_SIZE / 2);
+    let targetY =
+      screenHeight / 2 - (this.playerPos.y * TILE_SIZE + TILE_SIZE / 2);
+
+    // Clamp camera so it doesn't show outside the map
+    if (mapWidth > screenWidth) {
+      targetX = Math.max(screenWidth - mapWidth, Math.min(0, targetX));
+    } else {
+      targetX = (screenWidth - mapWidth) / 2; // Center if map is smaller than screen
+    }
+
+    if (mapHeight > screenHeight) {
+      targetY = Math.max(screenHeight - mapHeight, Math.min(0, targetY));
+    } else {
+      targetY = (screenHeight - mapHeight) / 2;
+    }
+
+    this.mapContainer.position.set(targetX, targetY);
+    this.actorsContainer.position.set(targetX, targetY);
+  }
+
+  // Handle window resize
+  public resize(width: number, height: number) {
+    this.dialogueBox.position.set((width - 800) / 2, height - 250);
+    this.updateCamera();
   }
 }

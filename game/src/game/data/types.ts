@@ -39,8 +39,8 @@ export interface LevelData {
   id: string;
   width: number;
   height: number;
-  // Simplified grid: 0 = unwalkable, 1 = floor/road
-  tiles: number[][];
+  // Array of layers, where each layer is a 2D grid. 0 = transparent/empty
+  tiles: number[][][];
   characters: MapCharacter[];
   playerStart: Position;
   dialogues?: Record<string, DialogueNode>;
