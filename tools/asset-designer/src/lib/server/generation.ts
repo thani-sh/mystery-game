@@ -105,9 +105,19 @@ export async function generateActorSpritesheet(
 			const idlePath = path.join(ASSETS_DIR, 'actors', actorId, 'frames', 'idle.png');
 			const idleImage = await fs.readFile(idlePath);
 			referenceImages.push(idleImage);
-			console.log(`Added idle spritesheet as reference for ${animationType}`);
 		} catch {
 			console.warn(`Idle spritesheet not found for ${actorId}, continuing without it`);
+		}
+
+		// If generating a walk animation, also include the walk cycle reference wireframe
+		if (animationType === 'walk') {
+			try {
+				const walkReferencePath = path.join(path.resolve(process.cwd(), '../../docs/spec/prompts'), 'walk_cycle_reference.png');
+				const walkReferenceImage = await fs.readFile(walkReferencePath);
+				referenceImages.push(walkReferenceImage);
+			} catch {
+				console.warn(`Walk cycle reference not found, continuing without it`);
+			}
 		}
 	} else {
 		// For idle animation, add Bets idle spritesheet as reference if available
@@ -115,7 +125,6 @@ export async function generateActorSpritesheet(
 			const betsIdlePath = path.join(ASSETS_DIR, 'actors', 'bets', 'frames', 'idle.png');
 			const betsIdleImage = await fs.readFile(betsIdlePath);
 			referenceImages.push(betsIdleImage);
-			console.log(`Added Bets idle spritesheet as reference for ${animationType}`);
 		} catch {
 			console.log(`Bets idle spritesheet not found, continuing without it`);
 		}
