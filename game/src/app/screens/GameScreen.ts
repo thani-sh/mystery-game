@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Text, Assets, AnimatedSprite } from "pixi.js";
 import {
   LevelData,
   Position,
@@ -33,8 +33,9 @@ export class GameScreen extends Container {
 
   private currentDialogueNodeId: string | null = null;
 
-  private actorSprites: Record<string, Graphics> = {};
-  private playerSprite: Graphics;
+  // We change these to track AnimatedSprites instead of primitives
+  private actorSprites: Record<string, AnimatedSprite> = {};
+  private playerSprite!: AnimatedSprite;
 
   private moveTimer: number = 0;
   private input: InputSystem;
@@ -53,7 +54,6 @@ export class GameScreen extends Container {
     this.addChild(this.actorsContainer);
     this.addChild(this.uiContainer);
 
-    this.playerSprite = new Graphics();
     this.dialogueBox = new Container();
     this.dialogueText = new Text({
       text: "",
@@ -64,10 +64,25 @@ export class GameScreen extends Container {
         wordWrapWidth: 700,
       },
     });
+  }
 
+  public async init() {
+    // Wait for assets to load before initializing actors
     this.initMap();
-    this.initActors();
     this.initUI();
+    await this.loadAndInitActors();
+  }
+
+  private async loadAndInitActors() {
+    // Load Bets (Player)
+    await Assets.load("/assets/actors/bets/idle.json");
+    await Assets.load("/assets/actors/bets/walk.json");
+
+    // Load Goon
+    await Assets.load("/assets/actors/goon/idle.json");
+    await Assets.load("/assets/actors/goon/walk.json");
+
+    this.initActors();
   }
 
   private initMap() {
@@ -98,26 +113,47 @@ export class GameScreen extends Container {
 
   private initActors() {
     // Player
-    this.playerSprite
-      .rect(0, 0, TILE_SIZE * 0.8, TILE_SIZE * 0.8)
-      .fill(0x0000ff); // blue square for player
+    const playerFrames = Assets.cache.get(
+      "/assets/actors/bets/idle.json",
+    ).animations;
+    this.playerSprite = new AnimatedSprite(playerFrames.down);
+    // Scale down the 256x256 sprite to fit a bit better
+    this.playerSprite.width = TILE_SIZE;
+    this.playerSprite.height = TILE_SIZE;
+    this.playerSprite.anchor.set(0.5, 0.5);
     this.playerSprite.position.set(
-      this.playerPos.x * TILE_SIZE + TILE_SIZE * 0.1,
-      this.playerPos.y * TILE_SIZE + TILE_SIZE * 0.1,
+      this.playerPos.x * TILE_SIZE + TILE_SIZE / 2,
+      this.playerPos.y * TILE_SIZE + TILE_SIZE / 2,
     );
+    this.playerSprite.play();
     this.actorsContainer.addChild(this.playerSprite);
 
     // NPCs
     for (const char of this.levelData.characters) {
-      const sprite = new Graphics();
-      sprite.rect(0, 0, TILE_SIZE * 0.8, TILE_SIZE * 0.8).fill(0xff0000); // red square for npc
+      // For POC, assuming all characters have an idle animation and look down
+      const frames = Assets.cache.get(`/assets/actors/${char.id}/idle.json`)
+        ?.animations?.down;
+      if (!frames) {
+        console.error(`Could not load frames for character ${char.id}`);
+        continue;
+      }
+
+      const sprite = new AnimatedSprite(frames);
+      sprite.width = TILE_SIZE;
+      sprite.height = TILE_SIZE;
+      sprite.anchor.set(0.5, 0.5);
+      sprite.animationSpeed = 0.1;
       sprite.position.set(
-        char.position.x * TILE_SIZE + TILE_SIZE * 0.1,
-        char.position.y * TILE_SIZE + TILE_SIZE * 0.1,
+        char.position.x * TILE_SIZE + TILE_SIZE / 2,
+        char.position.y * TILE_SIZE + TILE_SIZE / 2,
       );
+      sprite.play();
       this.actorSprites[char.id] = sprite;
       this.actorsContainer.addChild(sprite);
     }
+
+    // Initial camera update
+    this.updateCamera();
   }
 
   private initUI() {
@@ -173,8 +209,8 @@ export class GameScreen extends Container {
 
         // simple animate
         this.playerSprite.position.set(
-          this.playerPos.x * TILE_SIZE + TILE_SIZE * 0.1,
-          this.playerPos.y * TILE_SIZE + TILE_SIZE * 0.1,
+          this.playerPos.x * TILE_SIZE + TILE_SIZE / 2,
+          this.playerPos.y * TILE_SIZE + TILE_SIZE / 2,
         );
         this.updateCamera();
         this.moveTimer = 10; // ~160ms cooldown at 60fps
@@ -311,8 +347,8 @@ export class GameScreen extends Container {
         // update sprite
         if (this.actorSprites[char.id]) {
           this.actorSprites[char.id].position.set(
-            char.position.x * TILE_SIZE + TILE_SIZE * 0.1,
-            char.position.y * TILE_SIZE + TILE_SIZE * 0.1,
+            char.position.x * TILE_SIZE + TILE_SIZE / 2,
+            char.position.y * TILE_SIZE + TILE_SIZE / 2,
           );
         }
       }

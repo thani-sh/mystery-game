@@ -21,6 +21,7 @@ const level = levelData as LevelData;
 
   // Initialize Game Screen
   const gameScreen = new GameScreen(level);
+  await gameScreen.init();
 
   // Initial resize
   gameScreen.resize(app.screen.width, app.screen.height);
