@@ -1,22 +1,18 @@
 {
-  "name": "mystery-game",
+  "name": "game",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "vite",
+    "start": "npm run dev",
     "build": "npm run lint && tsc && vite build",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "dev": "vite"
   },
   "dependencies": {
-    "@esotericsoftware/spine-pixi-v8": "^4.2.74",
-    "@pixi/sound": "^6.0.1",
-    "@pixi/ui": "^2.2.2",
-    "motion": "^12.4.7",
     "pixi.js": "^8.8.1"
   },
   "devDependencies": {
-    "@assetpack/core": "^1.4.0",
     "@eslint/js": "^9.21.0",
     "eslint": "^9.21.0",
     "eslint-config-prettier": "^10.1.2",

@@ -1,31 +1,37 @@
-import { setEngine } from "./app/getEngine";
-import { LoadScreen } from "./app/screens/LoadScreen";
+import { Application } from "pixi.js";
 import { GameScreen } from "./app/screens/GameScreen";
-import { userSettings } from "./app/utils/userSettings";
-import { CreationEngine } from "./engine/engine";
-
-/**
- * Importing these modules will automatically register there plugins with the engine.
- */
-import "@pixi/sound";
-// import "@esotericsoftware/spine-pixi-v8";
-
-// Create a new creation engine instance
-const engine = new CreationEngine();
-setEngine(engine);
+import { level } from "./game/data/poc-data";
+import { InputSystem } from "./engine/utils/Input";
 
 (async () => {
-  // Initialize the creation engine instance
-  await engine.init({
-    background: "#FFFFFF",
-    resizeOptions: { minWidth: 768, minHeight: 1024, letterbox: false },
+  // Initialize input
+  InputSystem.getInstance();
+
+  // Create a new application
+  const app = new Application();
+
+  // Initialize the application
+  await app.init({ background: "#1099bb", resizeTo: window });
+
+  // Append the application canvas to the document body
+  document.getElementById("pixi-container")!.appendChild(app.canvas);
+
+  // Initialize Game Screen
+  const gameScreen = new GameScreen(level);
+
+  // Initial resize
+  gameScreen.resize(app.screen.width, app.screen.height);
+
+  // Add the game screen to the stage
+  app.stage.addChild(gameScreen);
+
+  // Listen for animate update
+  app.ticker.add((ticker) => {
+    gameScreen.update(ticker.deltaTime);
   });
 
-  // Initialize the user settings
-  userSettings.init();
-
-  // Show the load screen
-  await engine.navigation.showScreen(LoadScreen);
-  // Show the game screen once the load screen is dismissed
-  await engine.navigation.showScreen(GameScreen);
+  // Handle window resize
+  window.addEventListener("resize", () => {
+    gameScreen.resize(window.innerWidth, window.innerHeight);
+  });
 })();
