@@ -21,10 +21,10 @@ These guidelines apply to all 2D game environment tileset generation.
 
 - Create a square image with exactly 64 equal-sized squares (8x8) completely filling the canvas.
 - **ABSOLUTELY NO GAPS, borders, spacing, dividing lines, or margins** between any of the tiles. They must directly touch each other edge-to-edge.
+- **SEAMLESSNESS FOCUS**: A tile is useless by itself unless it can connect from all 4 sides. Eliminate corners and ends. Every tile must be heavily focused on seamless tiling with its matching edge types.
 - Each square represents a specific game tile (e.g., grass variations, road parts, walls, props).
-- Ensure tiles that are meant to connect (like roads, walls) line up perfectly from one tile's edge to another.
+- Ensure tiles that are meant to connect line up perfectly from one tile's edge to another.
 - Do not repeat the same tile or set of tiles. Each tile should be unique but variations are allowed.
-- Fill in grid lines to make the tiles seamless.
 
 ## Negative Prompts
 
