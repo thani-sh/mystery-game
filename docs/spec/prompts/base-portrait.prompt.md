@@ -8,7 +8,7 @@ These guidelines apply to all character portrait generation.
 - No environmental elements, props, or scene details - only the character.
 - Use 3:4 aspect ratio for the image dimensions and use the full canvas.
 - Position the character portrait at the bottom center of the image.
-- Character turned three-quarters to the left: the head and body are oriented toward the left side of the image, but most of the face is still clearly visible (not a strict side profile)
+- 3/4 view facing left: the head and body are oriented toward the left side of the image, but most of the face is still clearly visible (not a strict side profile)
 - The character's eyes and facial expression are clearly readable and facing generally toward the viewer
 
 ## Framing Rules
@@ -52,4 +52,4 @@ Small animals (e.g. dogs, cats)
 
 ## Negative Prompts
 
---no inconsistent character design, equipment, or clothing. no dramatic perspective, foreshortening, motion blur, multiple characters in one frame
+Avoid inconsistent character designs, equipment, or clothing. Do not use dramatic perspectives, foreshortening, or motion blur. Do not include multiple characters in one frame.

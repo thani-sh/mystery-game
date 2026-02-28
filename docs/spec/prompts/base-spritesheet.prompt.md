@@ -34,7 +34,7 @@ These guidelines apply to all character spritesheet generation.
 
 - Create a square image divided into a 4x4 grid (16 equal squares)
 - Each spritesheet contains one animation of the character.
-- Each row is dedicated to each cordial direction (down, left, right, up) in that order from top to bottom. !!!IMPORTANT: DO NOT CHANGE THE ORDER OF THE ROWS!!!
+- Each row is dedicated to a cardinal direction in this exact order from top to bottom: Row 1 (Top) = Down, Row 2 = Left, Row 3 = Right, Row 4 (Bottom) = Up. !!!IMPORTANT: DO NOT CHANGE THE ORDER OF THE ROWS!!!
 - All 4 frames should show subtle variations in the pose to create smooth animation when cycled
 - Animation frames start from the left to right in each row.
 - Each square contains one animation frame of the character.
@@ -43,4 +43,4 @@ These guidelines apply to all character spritesheet generation.
 
 ## Negative Prompts
 
---no inconsistent character design, equipment, clothing, foreshortening, motion blur, single frame, multiple characters in one frame, varying character sizes, varying positions within frames, grid layout with more or fewer than 16 frames
+Avoid inconsistent character designs, equipment, clothing, foreshortening, and motion blur. Do not generate a single frame, multiple characters in one frame, varying character sizes, or varying positions within frames. The grid layout must have exactly 16 frames.
