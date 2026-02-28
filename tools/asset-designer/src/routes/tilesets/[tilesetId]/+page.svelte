@@ -40,8 +40,8 @@
 		<div class="space-y-6">
 			<div class="flex justify-between items-end">
 				<div>
-					<h2 class="text-xl font-bold">16x16 Tileset Output</h2>
-					<p class="text-sm opacity-70">Generates 256 tiles packed into a 16x16 grid image</p>
+					<h2 class="text-xl font-bold">8x8 Tileset Output</h2>
+					<p class="text-sm opacity-70">Generates 256 tiles packed into a 8x8 grid image</p>
 				</div>
 				<button
 					class="btn btn-primary btn-sm"

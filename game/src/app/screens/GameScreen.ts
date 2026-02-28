@@ -1,4 +1,4 @@
-import { Container, Graphics, Text, Assets, AnimatedSprite } from "pixi.js";
+import { Container, Graphics, Text, Assets, AnimatedSprite, Sprite } from "pixi.js";
 import {
   LevelData,
   Position,
@@ -73,10 +73,14 @@ export class GameScreen extends Container {
   }
 
   public async init() {
+    // Load map assets
+    await Assets.load("/assets/tilesets/village_roads/tileset.json");
+
     // Wait for assets to load before initializing actors
+    await this.loadAndInitActors();
+
     this.initMap();
     this.initUI();
-    await this.loadAndInitActors();
   }
 
   private async loadAndInitActors() {
@@ -92,26 +96,46 @@ export class GameScreen extends Container {
   }
 
   private initMap() {
+    const tilesetTexture = Assets.cache.get("/assets/tilesets/village_roads/tileset.json");
+    const textures = tilesetTexture?.textures;
+
     for (const layer of this.levelData.tiles) {
       for (let y = 0; y < this.levelData.height; y++) {
         for (let x = 0; x < this.levelData.width; x++) {
           const tileType = layer[y][x];
           if (tileType === 0) continue;
 
-          const rect = new Graphics();
-
-          if (tileType === 1) {
-            rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x228b22); // grass
-          } else if (tileType === 2) {
-            rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x808080); // road
-          } else if (tileType === 3) {
-            rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x006400); // tree
-          } else {
-            rect.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0xff00ff); // unknown
+          let texture = null;
+          if (textures) {
+            if (tileType === 1) { // grass
+              texture = textures["tile_0"];
+            } else if (tileType === 2) { // road
+              texture = textures["tile_6"];
+            } else if (tileType === 3) { // tree
+              texture = textures["tile_45"];
+            }
           }
 
-          rect.position.set(x * TILE_SIZE, y * TILE_SIZE);
-          this.mapContainer.addChild(rect);
+          let displayObject;
+          if (texture) {
+            displayObject = new Sprite(texture);
+            displayObject.width = TILE_SIZE;
+            displayObject.height = TILE_SIZE;
+          } else {
+            displayObject = new Graphics();
+            if (tileType === 1) {
+              displayObject.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x228b22); // grass
+            } else if (tileType === 2) {
+              displayObject.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x808080); // road
+            } else if (tileType === 3) {
+              displayObject.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x006400); // tree
+            } else {
+              displayObject.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0xff00ff); // unknown
+            }
+          }
+
+          displayObject.position.set(x * TILE_SIZE, y * TILE_SIZE);
+          this.mapContainer.addChild(displayObject);
         }
       }
     }

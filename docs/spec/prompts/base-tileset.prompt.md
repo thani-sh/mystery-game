@@ -17,9 +17,9 @@ These guidelines apply to all 2D game environment tileset generation.
 
 ## Format Rules
 
-**CRITICAL: Generate a perfectly aligned equally sized 16x16 grid tileset, with exactly 256 tiles**
+**CRITICAL: Generate a perfectly aligned equally sized 8x8 grid tileset, with exactly 64 tiles**
 
-- Create a square image with exactly 256 equal-sized squares (16x16) completely filling the canvas.
+- Create a square image with exactly 64 equal-sized squares (8x8) completely filling the canvas.
 - **ABSOLUTELY NO GAPS, borders, spacing, dividing lines, or margins** between any of the tiles. They must directly touch each other edge-to-edge.
 - Each square represents a specific game tile (e.g., grass variations, road parts, walls, props).
 - Ensure tiles that are meant to connect (like roads, walls) line up perfectly from one tile's edge to another.
@@ -28,4 +28,4 @@ These guidelines apply to all 2D game environment tileset generation.
 
 ## Negative Prompts
 
-Avoid foreshortening and realistic blur in tiles. Do not generate a single large environment painting, do not ignore the grid, and ensure exactly a 16x16 grid is present. Avoid making the perspective isometric. Avoid props, only focus on base level tiles. Do not include any gaps, borders, dividing lines, or empty space between tiles.
+Avoid foreshortening and realistic blur in tiles. Do not generate a single large environment painting, do not ignore the grid, and ensure exactly an 8x8 grid is present. Avoid making the perspective isometric. Avoid props, only focus on base level tiles. Do not include any gaps, borders, dividing lines, or empty space between tiles.

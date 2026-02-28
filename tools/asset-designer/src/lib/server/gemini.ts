@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, type GenerateContentConfig } from '@google/genai';
 import { env } from '$env/dynamic/private';
 
 const ai = env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }) : null;
@@ -8,6 +8,7 @@ export type AspectRatio = '16:9' | '3:4' | '1:1';
 export interface GenerateImageOptions {
 	prompt: string;
 	referenceImages?: Buffer[]; // Optional multiple reference images
+	imageSize?: '512' | '1K'; // Image size for the generated image
 	aspectRatio?: AspectRatio; // Aspect ratio for the generated image
 	systemInstruction?: string; // Optional system instruction
 }
@@ -92,15 +93,13 @@ export async function generateImage(
 		}
 
 		// Build config with aspect ratio if provided
-		const config: any = {
-			responseModalities: ['image']
+		const config: GenerateContentConfig = {
+			responseModalities: ['image'],
+			imageConfig: {
+				imageSize: options.imageSize ?? '512',
+				aspectRatio: options.aspectRatio ?? '1:1'
+			}
 		};
-
-		if (options.aspectRatio) {
-			config.imageGenerationConfig = {
-				aspectRatio: options.aspectRatio
-			};
-		}
 
 		if (options.systemInstruction) {
 			config.systemInstruction = options.systemInstruction;
