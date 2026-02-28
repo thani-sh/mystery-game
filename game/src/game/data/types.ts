@@ -7,6 +7,7 @@ export interface CharacterData {
   id: string;
   name: string;
   sprite: string;
+  scale?: number; // visual size multiplier relative to TILE_SIZE. Default: 1
 }
 
 export interface Action {

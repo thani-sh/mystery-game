@@ -1,5 +1,6 @@
 {
   "id": "goon",
   "name": "Mr. Goon",
-  "sprite": "goon_sprite"
+  "sprite": "goon_sprite",
+  "scale": 3
 }

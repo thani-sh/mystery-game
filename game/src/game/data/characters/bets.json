@@ -1,5 +1,6 @@
 {
   "id": "bets",
   "name": "Bets",
-  "sprite": "bets_sprite"
+  "sprite": "bets_sprite",
+  "scale": 2
 }

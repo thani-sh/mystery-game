@@ -48,6 +48,7 @@ export class GameScreen extends Container {
 
     this.mapContainer = new Container();
     this.actorsContainer = new Container();
+    this.actorsContainer.sortableChildren = true; // enable Y-sorting
     this.uiContainer = new Container();
 
     this.addChild(this.mapContainer);
@@ -117,14 +118,16 @@ export class GameScreen extends Container {
       "/assets/actors/bets/idle.json",
     ).animations;
     this.playerSprite = new AnimatedSprite(playerFrames.down);
-    // Scale down the 256x256 sprite to fit a bit better
-    this.playerSprite.width = TILE_SIZE;
-    this.playerSprite.height = TILE_SIZE;
-    this.playerSprite.anchor.set(0.5, 0.5);
+    const playerScale = characters["bets"]?.scale ?? 1;
+    this.playerSprite.width = TILE_SIZE * playerScale;
+    this.playerSprite.height = TILE_SIZE * playerScale;
+    // Anchor to bottom-center so the character stands on their tile
+    this.playerSprite.anchor.set(0.5, 1.0);
     this.playerSprite.position.set(
       this.playerPos.x * TILE_SIZE + TILE_SIZE / 2,
-      this.playerPos.y * TILE_SIZE + TILE_SIZE / 2,
+      this.playerPos.y * TILE_SIZE + TILE_SIZE,
     );
+    this.playerSprite.zIndex = this.playerSprite.y;
     this.playerSprite.play();
     this.actorsContainer.addChild(this.playerSprite);
 
@@ -139,14 +142,17 @@ export class GameScreen extends Container {
       }
 
       const sprite = new AnimatedSprite(frames);
-      sprite.width = TILE_SIZE;
-      sprite.height = TILE_SIZE;
-      sprite.anchor.set(0.5, 0.5);
+      const charScale = characters[char.id]?.scale ?? 1;
+      sprite.width = TILE_SIZE * charScale;
+      sprite.height = TILE_SIZE * charScale;
+      // Anchor to bottom-center so the character stands on their tile
+      sprite.anchor.set(0.5, 1.0);
       sprite.animationSpeed = 0.1;
       sprite.position.set(
         char.position.x * TILE_SIZE + TILE_SIZE / 2,
-        char.position.y * TILE_SIZE + TILE_SIZE / 2,
+        char.position.y * TILE_SIZE + TILE_SIZE,
       );
+      sprite.zIndex = sprite.y;
       sprite.play();
       this.actorSprites[char.id] = sprite;
       this.actorsContainer.addChild(sprite);
@@ -210,8 +216,9 @@ export class GameScreen extends Container {
         // simple animate
         this.playerSprite.position.set(
           this.playerPos.x * TILE_SIZE + TILE_SIZE / 2,
-          this.playerPos.y * TILE_SIZE + TILE_SIZE / 2,
+          this.playerPos.y * TILE_SIZE + TILE_SIZE,
         );
+        this.playerSprite.zIndex = this.playerSprite.y;
         this.updateCamera();
         this.moveTimer = 10; // ~160ms cooldown at 60fps
       } else {
@@ -348,8 +355,9 @@ export class GameScreen extends Container {
         if (this.actorSprites[char.id]) {
           this.actorSprites[char.id].position.set(
             char.position.x * TILE_SIZE + TILE_SIZE / 2,
-            char.position.y * TILE_SIZE + TILE_SIZE / 2,
+            char.position.y * TILE_SIZE + TILE_SIZE,
           );
+          this.actorSprites[char.id].zIndex = this.actorSprites[char.id].y;
         }
       }
     }
@@ -386,8 +394,8 @@ export class GameScreen extends Container {
       targetY = (screenHeight - mapHeight) / 2;
     }
 
-    this.mapContainer.position.set(targetX, targetY);
-    this.actorsContainer.position.set(targetX, targetY);
+    this.mapContainer.position.set(Math.round(targetX), Math.round(targetY));
+    this.actorsContainer.position.set(Math.round(targetX), Math.round(targetY));
   }
 
   // Handle window resize
