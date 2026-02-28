@@ -2,6 +2,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import './styles.css';
 	import { page } from '$app/stores';
+	import NotificationsDropdown from '$lib/NotificationsDropdown.svelte';
 
 	let { children } = $props();
 
@@ -10,26 +11,6 @@
 		{ href: '/actors', label: 'Actors', icon: '👥' },
 		{ href: '/tilesets', label: 'Tilesets', icon: '🗺️' }
 	];
-
-	// Generate breadcrumbs from current path
-	let breadcrumbs = $derived(() => {
-		const path = $page.url.pathname;
-		const segments = path.split('/').filter(Boolean);
-
-		const crumbs = [{ label: 'Home', href: '/' }];
-
-		let currentPath = '';
-		for (const segment of segments) {
-			currentPath += `/${segment}`;
-			const navItem = navItems.find((item) => item.href === currentPath);
-			crumbs.push({
-				label: navItem?.label || segment.charAt(0).toUpperCase() + segment.slice(1),
-				href: currentPath
-			});
-		}
-
-		return crumbs;
-	});
 </script>
 
 <svelte:head>
@@ -37,66 +18,29 @@
 	<title>Asset Designer</title>
 </svelte:head>
 
-<div class="drawer lg:drawer-open">
-	<input id="main-drawer" type="checkbox" class="drawer-toggle" />
-
-	<div class="drawer-content flex flex-col bg-base-200">
-		<!-- Breadcrumbs -->
-		<div class="bg-base-100 px-6 py-3 shadow-sm">
-			<div class="breadcrumbs text-sm">
-				<ul>
-					{#each breadcrumbs() as crumb, i}
-						<li>
-							{#if i === breadcrumbs().length - 1}
-								<span class="font-semibold">{crumb.label}</span>
-							{:else}
-								<a href={crumb.href} class="link link-hover">{crumb.label}</a>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			</div>
+<div class="flex flex-col min-h-screen bg-base-200">
+	<!-- Top Navigation -->
+	<div class="navbar bg-base-100 shadow-sm px-4 sticky top-0 z-50">
+		<div class="navbar-start">
+			{#if $page.url.pathname !== '/'}
+				<button
+					class="btn btn-ghost btn-circle mr-2"
+					onclick={() => window.history.back()}
+					aria-label="Go back"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+					</svg>
+				</button>
+			{/if}
+			<a href="/" class="btn btn-ghost text-xl gap-2 font-bold normal-case">
+				<span class="text-2xl">🎨</span>
+				<span class="hidden sm:inline">Asset Designer</span>
+			</a>
 		</div>
 
-		<!-- Main Content -->
-		<main class="flex-1 p-6">
-			{@render children()}
-		</main>
-
-		<!-- Mobile Menu Button -->
-		<label
-			for="main-drawer"
-			class="btn btn-primary drawer-button lg:hidden fixed bottom-4 right-4 btn-circle"
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				class="inline-block w-6 h-6 stroke-current"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M4 6h16M4 12h16M4 18h16"
-				></path>
-			</svg>
-		</label>
-	</div>
-
-	<div class="drawer-side">
-		<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-		<aside class="bg-base-100 min-h-full w-64 p-4 flex flex-col">
-			<!-- Sidebar Header -->
-			<div class="mb-8">
-				<a href="/" class="flex items-center gap-2 px-2">
-					<span class="text-2xl">🎨</span>
-					<span class="text-xl font-bold">Asset Designer</span>
-				</a>
-			</div>
-
-			<!-- Navigation Menu -->
-			<ul class="menu flex-1 gap-2">
+		<div class="navbar-center hidden lg:flex">
+			<ul class="menu menu-horizontal px-1 gap-2">
 				{#each navItems as item}
 					<li>
 						<a
@@ -104,17 +48,43 @@
 							class:active={$page.url.pathname === item.href ||
 								(item.href !== '/' && $page.url.pathname.startsWith(item.href))}
 						>
-							<span class="text-xl">{item.icon}</span>
+							<span>{item.icon}</span>
 							<span>{item.label}</span>
 						</a>
 					</li>
 				{/each}
 			</ul>
+		</div>
 
-			<!-- Sidebar Footer -->
-			<div class="mt-auto pt-4 border-t border-base-300">
-				<p class="text-xs text-center opacity-60">Mystery Game Asset Designer</p>
+		<div class="navbar-end gap-2">
+			<!-- Mobile Navigation Dropdown -->
+			<div class="dropdown dropdown-end lg:hidden">
+				<button tabindex="0" class="btn btn-ghost btn-circle" aria-label="Open Menu">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+				</button>
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+				<ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+					{#each navItems as item}
+						<li>
+							<a
+								href={item.href}
+								class:active={$page.url.pathname === item.href ||
+									(item.href !== '/' && $page.url.pathname.startsWith(item.href))}
+							>
+								<span>{item.icon}</span>
+								<span>{item.label}</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
 			</div>
-		</aside>
+
+			<NotificationsDropdown />
+		</div>
 	</div>
+
+	<!-- Main Content -->
+	<main class="flex-1 p-6">
+		{@render children()}
+	</main>
 </div>

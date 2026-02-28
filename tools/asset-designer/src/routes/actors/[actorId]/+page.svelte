@@ -7,6 +7,7 @@
 		generateMissingPortraits,
 		generateMissingSpritesheets
 	} from './generate.remote';
+	import { jobsStore } from '$lib/stores/jobs.svelte';
 
 	let { data } = $props();
 
@@ -41,14 +42,18 @@
 	async function handleGenerateConcept() {
 		generating = true;
 		status = { type: 'info', message: 'Generating concept...' };
+		const jobId = jobsStore.add(`Generating concept for ${data.actor.name}`);
 
 		try {
 			await generateConcept(data.actor.id);
 			status = { type: 'success', message: 'Concept generated successfully!' };
+			jobsStore.update(jobId, 'success', 'Concept generated successfully!');
 			// Reload the page to get the new portrait
 			window.location.reload();
 		} catch (error) {
-			status = { type: 'error', message: error instanceof Error ? error.message : 'Error generating concept' };
+			const errorMessage = error instanceof Error ? error.message : 'Error generating concept';
+			status = { type: 'error', message: errorMessage };
+			jobsStore.update(jobId, 'error', errorMessage);
 			console.error('Generate error:', error);
 		} finally {
 			generating = false;
@@ -58,6 +63,7 @@
 	async function handleGenerateSpeechPortrait(expressionType: string) {
 		generatingExpression[expressionType] = true;
 		status = { type: 'info', message: `Generating ${expressionType} expression...` };
+		const jobId = jobsStore.add(`Generating ${expressionType} expression for ${data.actor.name}`);
 
 		try {
 			await generatePortrait([data.actor.id, expressionType]);
@@ -65,13 +71,16 @@
 				type: 'success',
 				message: `${expressionType} expression generated successfully!`
 			};
+			jobsStore.update(jobId, 'success', `${expressionType} expression generated successfully!`);
 			// Reload the page to get the new portrait
 			window.location.reload();
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : `Error generating ${expressionType} expression`;
 			status = {
 				type: 'error',
-				message: error instanceof Error ? error.message : `Error generating ${expressionType} expression`
+				message: errorMessage
 			};
+			jobsStore.update(jobId, 'error', errorMessage);
 			console.error('Generate error:', error);
 		} finally {
 			generatingExpression[expressionType] = false;
@@ -81,17 +90,21 @@
 	async function handleGenerateFrame(frameType: string) {
 		generatingFrame[frameType] = true;
 		status = { type: 'info', message: `Generating ${frameType} frame...` };
+		const jobId = jobsStore.add(`Generating ${frameType} frame for ${data.actor.name}`);
 
 		try {
 			await generateSpritesheet([data.actor.id, frameType]);
 			status = { type: 'success', message: `${frameType} frame generated successfully!` };
+			jobsStore.update(jobId, 'success', `${frameType} frame generated successfully!`);
 			// Reload the page to get the new frame
 			window.location.reload();
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : `Error generating ${frameType} frame`;
 			status = {
 				type: 'error',
-				message: error instanceof Error ? error.message : `Error generating ${frameType} frame`
+				message: errorMessage
 			};
+			jobsStore.update(jobId, 'error', errorMessage);
 			console.error('Generate error:', error);
 		} finally {
 			generatingFrame[frameType] = false;
@@ -101,6 +114,7 @@
 	async function handleGenerateMissingPortraits() {
 		generatingPortraits = true;
 		status = { type: 'info', message: `Generating ${missingPortraitsCount} missing portraits...` };
+		const jobId = jobsStore.add(`Generating ${missingPortraitsCount} missing portraits for ${data.actor.name}`);
 
 		try {
 			const result = await generateMissingPortraits([data.actor.id, data.expressionTypes]);
@@ -109,15 +123,19 @@
 
 			if (failCount === 0) {
 				status = { type: 'success', message: `Successfully generated all ${successCount} portraits!` };
+				jobsStore.update(jobId, 'success', `Successfully generated all ${successCount} portraits!`);
 			} else {
 				status = { type: 'error', message: `Generated ${successCount} portraits, ${failCount} failed.` };
+				jobsStore.update(jobId, 'error', `Generated ${successCount} portraits, ${failCount} failed.`);
 			}
 			setTimeout(() => window.location.reload(), 2000);
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Error generating portraits';
 			status = {
 				type: 'error',
-				message: error instanceof Error ? error.message : 'Error generating portraits'
+				message: errorMessage
 			};
+			jobsStore.update(jobId, 'error', errorMessage);
 		} finally {
 			generatingPortraits = false;
 		}
@@ -129,6 +147,7 @@
 			type: 'info',
 			message: `Generating ${missingFramesCount} missing spritesheets...`
 		};
+		const jobId = jobsStore.add(`Generating ${missingFramesCount} missing spritesheets for ${data.actor.name}`);
 
 		try {
 			// Filter animation types to ensure idle is generated first
@@ -142,18 +161,22 @@
 					type: 'success',
 					message: `Successfully generated all ${successCount} spritesheets!`
 				};
+				jobsStore.update(jobId, 'success', `Successfully generated all ${successCount} spritesheets!`);
 			} else {
 				status = {
 					type: 'error',
 					message: `Generated ${successCount} spritesheets, ${failCount} failed.`
 				};
+				jobsStore.update(jobId, 'error', `Generated ${successCount} spritesheets, ${failCount} failed.`);
 			}
 			setTimeout(() => window.location.reload(), 2000);
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Error generating spritesheets';
 			status = {
 				type: 'error',
-				message: error instanceof Error ? error.message : 'Error generating spritesheets'
+				message: errorMessage
 			};
+			jobsStore.update(jobId, 'error', errorMessage);
 		} finally {
 			generatingSpritesheets = false;
 		}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { generateTilesetImageCommand } from './generate.remote';
 	import { marked } from 'marked';
+	import { jobsStore } from '$lib/stores/jobs.svelte';
 
 	let { data } = $props();
 
@@ -12,14 +13,18 @@
 	async function handleGenerateTileset() {
 		generating = true;
 		status = { type: 'info', message: 'Generating tileset...' };
+		const jobId = jobsStore.add(`Generating tileset for ${data.tileset.name}`);
 
 		try {
 			await generateTilesetImageCommand(data.tileset.id);
 			status = { type: 'success', message: 'Tileset generated successfully!' };
+			jobsStore.update(jobId, 'success', 'Tileset generated successfully!');
 			// Reload the page to get the new image
 			window.location.reload();
 		} catch (error) {
-			status = { type: 'error', message: error instanceof Error ? error.message : 'Error generating tileset' };
+			const errorMessage = error instanceof Error ? error.message : 'Error generating tileset';
+			status = { type: 'error', message: errorMessage };
+			jobsStore.update(jobId, 'error', errorMessage);
 			console.error('Generate error:', error);
 		} finally {
 			generating = false;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { generateMissingConcepts } from './generate-batch.remote';
+	import { jobsStore } from '$lib/stores/jobs.svelte';
 
 	let { data } = $props();
 	let generating = $state(false);
@@ -11,6 +12,7 @@
 	async function handleGenerateMissing() {
 		generating = true;
 		status = { type: 'info', message: `Generating concepts for ${missingConceptsCount} actors...` };
+		const jobId = jobsStore.add(`Generating concepts for ${missingConceptsCount} actors...`);
 
 		try {
 			const result = await generateMissingConcepts();
@@ -22,20 +24,24 @@
 					type: 'success',
 					message: `Successfully generated ${successCount} concept images!`
 				};
+				jobsStore.update(jobId, 'success', `Successfully generated ${successCount} concept images!`);
 			} else {
 				status = {
 					type: 'error',
 					message: `Generated ${successCount} concepts, ${failCount} failed.`
 				};
+				jobsStore.update(jobId, 'error', `Generated ${successCount} concepts, ${failCount} failed.`);
 			}
 
 			// Reload page to show new concepts
 			setTimeout(() => window.location.reload(), 2000);
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Failed to generate concepts';
 			status = {
 				type: 'error',
-				message: error instanceof Error ? error.message : 'Failed to generate concepts'
+				message: errorMessage
 			};
+			jobsStore.update(jobId, 'error', errorMessage);
 		} finally {
 			generating = false;
 		}
