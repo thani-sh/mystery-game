@@ -30,7 +30,7 @@ export async function generateText(
 		}
 
 		const response = await ai.models.generateContent({
-			model: 'gemini-3-pro-preview',
+			model: 'gemini-3.1-pro-preview',
 			contents: [{ text: prompt }],
 			config
 		});
@@ -107,7 +107,7 @@ export async function generateImage(
 		}
 
 		const response = await ai.models.generateContent({
-			model: 'gemini-3-pro-image-preview',
+			model: 'gemini-3.1-flash-image-preview',
 			contents: contentParts,
 			config
 		});
