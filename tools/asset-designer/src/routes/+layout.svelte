@@ -7,7 +7,8 @@
 
 	const navItems = [
 		{ href: '/', label: 'Home', icon: '🏠' },
-		{ href: '/actors', label: 'Actors', icon: '👥' }
+		{ href: '/actors', label: 'Actors', icon: '👥' },
+		{ href: '/tilesets', label: 'Tilesets', icon: '🗺️' }
 	];
 
 	// Generate breadcrumbs from current path

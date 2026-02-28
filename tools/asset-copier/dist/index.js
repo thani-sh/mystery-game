@@ -6137,6 +6137,30 @@ import { mkdir, stat } from "fs/promises";
 import { writeFile } from "fs/promises";
 var ASSETS_DIR = resolve(import.meta.dir, "../../../assets");
 var TARGET_DIR = resolve(import.meta.dir, "../../../game/public/assets");
+async function generateTilesetJson(imagePath, targetJsonPath) {
+  const imageName = relative(dirname(imagePath), imagePath);
+  const spriteDef = {
+    frames: {},
+    meta: {
+      image: imageName,
+      format: "RGBA8888",
+      size: { w: 1024, h: 1024 },
+      scale: "1"
+    }
+  };
+  for (let i = 0;i < 256; i++) {
+    const col = i % 16;
+    const row = Math.floor(i / 16);
+    const x = col * 64;
+    const y = row * 64;
+    spriteDef.frames[`tile_${i}`] = {
+      frame: { x, y, w: 64, h: 64 },
+      sourceSize: { w: 64, h: 64 },
+      spriteSourceSize: { x: 0, y: 0, w: 64, h: 64 }
+    };
+  }
+  await writeFile(targetJsonPath, JSON.stringify(spriteDef, null, 2), "utf8");
+}
 async function generateSpriteJson(imagePath, targetJsonPath) {
   const imageName = relative(dirname(imagePath), imagePath);
   const spriteDef = {
@@ -6219,13 +6243,17 @@ async function processAsset(options) {
   }
   if (sourcePath.includes("/frames/")) {
     const targetJsonPath = targetPath.replace(/\.(png|jpg|jpeg|webp)$/i, ".json");
-    console.log(`  \uD83D\uDCDD Generating sprite JSON: ${relative(ASSETS_DIR, targetJsonPath)}`);
+    console.log(`  \uD83D\uDCDD Generating character sprite JSON: ${relative(ASSETS_DIR, targetJsonPath)}`);
     await generateSpriteJson(targetPath, targetJsonPath);
+  } else if (sourcePath.includes("/tilesets/")) {
+    const targetJsonPath = targetPath.replace(/\.(png|jpg|jpeg|webp)$/i, ".json");
+    console.log(`  \uD83D\uDCDD Generating tileset JSON: ${relative(ASSETS_DIR, targetJsonPath)}`);
+    await generateTilesetJson(targetPath, targetJsonPath);
   }
 }
 function shouldRemoveBackgroundForFile(relativePath) {
   const lowerPath = relativePath.toLowerCase();
-  if (lowerPath.includes("/frames/") || lowerPath.includes("/speech/")) {
+  if (lowerPath.includes("/frames/") || lowerPath.includes("/speech/") || lowerPath.includes("/tilesets/")) {
     return true;
   }
   if (lowerPath.includes("concept")) {

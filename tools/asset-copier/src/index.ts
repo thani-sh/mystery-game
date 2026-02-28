@@ -16,6 +16,44 @@ interface ProcessOptions {
 }
 
 /**
+ * Generate a JSON sprite definition for 16x16 tilesets
+ * Assumes a 16x16 grid (256 frames) with dimensions 1024x1024 and 64x64 frames
+ */
+async function generateTilesetJson(
+  imagePath: string,
+  targetJsonPath: string,
+): Promise<void> {
+  const imageName = relative(dirname(imagePath), imagePath);
+
+  // Standard 16x16 grid layout for tiles
+  const spriteDef = {
+    frames: {} as Record<string, any>,
+    meta: {
+      image: imageName,
+      format: "RGBA8888",
+      size: { w: 1024, h: 1024 },
+      scale: "1",
+    },
+  };
+
+  // Generate the 256 tiles
+  for (let i = 0; i < 256; i++) {
+    const col = i % 16;
+    const row = Math.floor(i / 16);
+    const x = col * 64;
+    const y = row * 64;
+
+    spriteDef.frames[`tile_${i}`] = {
+      frame: { x, y, w: 64, h: 64 },
+      sourceSize: { w: 64, h: 64 },
+      spriteSourceSize: { x: 0, y: 0, w: 64, h: 64 },
+    };
+  }
+
+  await writeFile(targetJsonPath, JSON.stringify(spriteDef, null, 2), "utf8");
+}
+
+/**
  * Generate a JSON sprite definition for character frames
  * Assumes a 4x4 grid (16 frames) with dimensions 1024x1024 and 256x256 frames
  */
@@ -165,8 +203,12 @@ async function processAsset(options: ProcessOptions): Promise<void> {
   // Generate sprite JSON for images in the frames directory
   if (sourcePath.includes("/frames/")) {
     const targetJsonPath = targetPath.replace(/\.(png|jpg|jpeg|webp)$/i, ".json");
-    console.log(`  📝 Generating sprite JSON: ${relative(ASSETS_DIR, targetJsonPath)}`);
+    console.log(`  📝 Generating character sprite JSON: ${relative(ASSETS_DIR, targetJsonPath)}`);
     await generateSpriteJson(targetPath, targetJsonPath);
+  } else if (sourcePath.includes("/tilesets/")) {
+    const targetJsonPath = targetPath.replace(/\.(png|jpg|jpeg|webp)$/i, ".json");
+    console.log(`  📝 Generating tileset JSON: ${relative(ASSETS_DIR, targetJsonPath)}`);
+    await generateTilesetJson(targetPath, targetJsonPath);
   }
 }
 
@@ -177,13 +219,14 @@ function shouldRemoveBackgroundForFile(relativePath: string): boolean {
   // Remove background for:
   // - Character frames (idle.png, walk.png, etc. in actors/*/frames/)
   // - Character portraits (talking.png in actors/*/speech/)
+  // - Tilesets (tileset.png in tilesets/*/)
   // Keep as-is for:
   // - Concept art (concept.png, main-cast-concept-image.jpeg, etc.)
 
   const lowerPath = relativePath.toLowerCase();
 
-  // Check if it's in frames or speech directory (sprites and portraits)
-  if (lowerPath.includes("/frames/") || lowerPath.includes("/speech/")) {
+  // Check if it's in frames, speech or tilesets directory
+  if (lowerPath.includes("/frames/") || lowerPath.includes("/speech/") || lowerPath.includes("/tilesets/")) {
     return true;
   }
 

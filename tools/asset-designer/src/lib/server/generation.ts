@@ -9,9 +9,11 @@ import {
 	getPrompt,
 	getConceptArtImages,
 	saveActorSpeech,
-	saveActorFrame
+	saveActorFrame,
+	getTileset,
+	saveTilesetImage
 } from '$lib/server/filesystem';
-import { generateImage, buildPortraitPrompt, buildSpritesheetPrompt } from '$lib/server/gemini';
+import { generateImage, buildPortraitPrompt, buildSpritesheetPrompt, buildTilesetPrompt } from '$lib/server/gemini';
 
 const ASSETS_DIR = path.resolve(process.cwd(), '../../assets');
 
@@ -143,4 +145,41 @@ export async function generateActorSpritesheet(
 
 	await saveActorFrame(actorId, animationType, result.data);
 	console.log(`Done generating ${animationType} spritesheet for actor: ${actorId}`);
+}
+
+/**
+ * Generate a single tileset
+ */
+export async function generateTileset(
+	tilesetId: string
+): Promise<void> {
+	const tileset = await getTileset(tilesetId);
+	if (!tileset) {
+		throw new Error('Tileset not found');
+	}
+
+	const systemPrompt = await getSystemPrompt();
+	const { systemInstruction, prompt: userPrompt } = await buildTilesetPrompt(
+		systemPrompt,
+		tileset.content
+	);
+
+	const referenceImages: Buffer[] = [];
+	const conceptArtImages = await getConceptArtImages();
+	referenceImages.push(...conceptArtImages);
+	console.log(`Generating tileset: ${tilesetId}`);
+
+	const result = await generateImage({
+		prompt: userPrompt,
+		systemInstruction,
+		referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+		aspectRatio: '1:1'
+	});
+
+	if (!result) {
+		throw new Error('Failed to generate tileset');
+	}
+
+	await saveTilesetImage(tilesetId, result.data);
+	console.log(`Done generating tileset: ${tilesetId}`);
 }
