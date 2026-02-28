@@ -4,8 +4,10 @@ import path from 'path';
 const SPEC_DIR = path.resolve(process.cwd(), '../../docs/spec');
 const PROMPTS_DIR = path.join(SPEC_DIR, 'prompts');
 const ACTORS_DIR = path.join(SPEC_DIR, 'actors');
-const TILESETS_DIR = path.join(SPEC_DIR, 'tilesets');
+
 const ASSETS_DIR = path.resolve(process.cwd(), '../../assets');
+
+
 
 export interface Actor {
 	id: string;
@@ -14,12 +16,7 @@ export interface Actor {
 	content: string;
 }
 
-export interface Tileset {
-	id: string;
-	name: string;
-	description: string;
-	content: string;
-}
+
 
 export interface SpecFile {
 	id: string;
@@ -124,75 +121,7 @@ export async function updateActor(id: string, content: string): Promise<void> {
 	await fs.writeFile(filePath, content, 'utf-8');
 }
 
-/**
- * Get all tilesets
- */
-export async function getTilesets(): Promise<Tileset[]> {
-	try {
-		const files = await fs.readdir(TILESETS_DIR);
-		const tilesets: Tileset[] = [];
 
-		for (const file of files) {
-			if (!file.endsWith('.md')) continue;
-
-			const filePath = path.join(TILESETS_DIR, file);
-			const content = await fs.readFile(filePath, 'utf-8');
-			const id = file.replace('.md', '');
-
-			// Extract title and description reasonably (similar to frontmatter) or just provide simple fallback
-			let name = id.replace(/-/g, ' ');
-			const nameMatch = content.match(/name:\s*(.+)/);
-			if (nameMatch) {
-				name = nameMatch[1].trim();
-			}
-
-			tilesets.push({
-				id,
-				name,
-				description: '',
-				content
-			});
-		}
-
-		return tilesets;
-	} catch (error) {
-		console.warn(`Could not read tilesets directory: ${error}`);
-		return [];
-	}
-}
-
-/**
- * Get a specific tileset
- */
-export async function getTileset(id: string): Promise<Tileset | null> {
-	try {
-		const filePath = path.join(TILESETS_DIR, `${id}.md`);
-		const content = await fs.readFile(filePath, 'utf-8');
-
-		let name = id.replace(/-/g, ' ');
-		const nameMatch = content.match(/name:\s*(.+)/);
-		if (nameMatch) {
-			name = nameMatch[1].trim();
-		}
-
-		return {
-			id,
-			name,
-			description: '',
-			content
-		};
-	} catch (error) {
-		return null;
-	}
-}
-
-/**
- * Update a tileset
- */
-export async function updateTileset(id: string, content: string): Promise<void> {
-	const filePath = path.join(TILESETS_DIR, `${id}.md`);
-	await fs.writeFile(filePath, content, 'utf-8');
-}
 
 /**
  * Get actor concept image path
@@ -339,57 +268,6 @@ export async function getActorFrameDataUrl(
 	try {
 		const framePath = getActorFramePath(actorId, frameType);
 		const imageBuffer = await fs.readFile(framePath);
-		const base64 = imageBuffer.toString('base64');
-		return `data:image/png;base64,${base64}`;
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Get tileset image path
- */
-function getTilesetImagePath(tilesetId: string): string {
-	return path.join(ASSETS_DIR, 'tilesets', tilesetId, 'tileset.png');
-}
-
-/**
- * Check if tileset has a generated image
- */
-export async function hasTilesetImage(tilesetId: string): Promise<boolean> {
-	try {
-		const filePath = getTilesetImagePath(tilesetId);
-		await fs.access(filePath);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-/**
- * Save tileset image
- */
-export async function saveTilesetImage(
-	tilesetId: string,
-	imageData: Buffer
-): Promise<void> {
-	const filePath = getTilesetImagePath(tilesetId);
-	const dir = path.dirname(filePath);
-
-	// Create directory if it doesn't exist
-	await fs.mkdir(dir, { recursive: true });
-	await fs.writeFile(filePath, imageData);
-}
-
-/**
- * Get tileset image as base64 data URL
- */
-export async function getTilesetImageDataUrl(
-	tilesetId: string
-): Promise<string | null> {
-	try {
-		const filePath = getTilesetImagePath(tilesetId);
-		const imageBuffer = await fs.readFile(filePath);
 		const base64 = imageBuffer.toString('base64');
 		return `data:image/png;base64,${base64}`;
 	} catch {

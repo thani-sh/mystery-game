@@ -13,6 +13,7 @@ export interface GenerateImageOptions {
 	systemInstruction?: string; // Optional system instruction
 }
 
+
 /**
  * Generate text using Gemini Flash
  */
@@ -142,6 +143,7 @@ export async function generateImage(
 	}
 }
 
+
 /**
  * Build a prompt for concept art generation
  */
@@ -155,33 +157,6 @@ export function buildConceptPrompt(
 	};
 }
 
-/**
- * Build a prompt for tileset generation
- */
-export async function buildTilesetPrompt(
-	systemPrompt: string,
-	tilesetDescription: string
-): Promise<{ systemInstruction: string; prompt: string }> {
-	// Load base tileset guidelines
-	const fs = await import('fs/promises');
-	const path = await import('path');
-	const PROMPTS_DIR = path.resolve(process.cwd(), '../../docs/spec/prompts');
-
-	let baseTilesetInstructions = '';
-	try {
-		baseTilesetInstructions = await fs.readFile(
-			path.join(PROMPTS_DIR, 'base-tileset.prompt.md'),
-			'utf-8'
-		);
-	} catch (error) {
-		console.warn('Could not load base-tileset.prompt.md, continuing without it');
-	}
-
-	return {
-		systemInstruction: `${systemPrompt}\n\n${baseTilesetInstructions}`,
-		prompt: `Tileset Description:\n${tilesetDescription}`
-	};
-}
 
 /**
  * Build a prompt for portrait generation

@@ -7,9 +7,8 @@
 	let { children } = $props();
 
 	const navItems = [
-		{ href: '/', label: 'Home', icon: '🏠' },
-		{ href: '/actors', label: 'Actors', icon: '👥' },
-		{ href: '/tilesets', label: 'Tilesets', icon: '🗺️' }
+		{ href: '/', label: 'Home' },
+		{ href: '/actors', label: 'Actors' }
 	];
 </script>
 
@@ -22,19 +21,8 @@
 	<!-- Top Navigation -->
 	<div class="navbar bg-base-100 shadow-sm px-4 sticky top-0 z-50">
 		<div class="navbar-start">
-			{#if $page.url.pathname !== '/'}
-				<button
-					class="btn btn-ghost btn-circle mr-2"
-					onclick={() => window.history.back()}
-					aria-label="Go back"
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-					</svg>
-				</button>
-			{/if}
+
 			<a href="/" class="btn btn-ghost text-xl gap-2 font-bold normal-case">
-				<span class="text-2xl">🎨</span>
 				<span class="hidden sm:inline">Asset Designer</span>
 			</a>
 		</div>
@@ -45,10 +33,11 @@
 					<li>
 						<a
 							href={item.href}
-							class:active={$page.url.pathname === item.href ||
+							class:text-primary={$page.url.pathname === item.href ||
+								(item.href !== '/' && $page.url.pathname.startsWith(item.href))}
+							class:font-bold={$page.url.pathname === item.href ||
 								(item.href !== '/' && $page.url.pathname.startsWith(item.href))}
 						>
-							<span>{item.icon}</span>
 							<span>{item.label}</span>
 						</a>
 					</li>
@@ -68,10 +57,11 @@
 						<li>
 							<a
 								href={item.href}
-								class:active={$page.url.pathname === item.href ||
+								class:text-primary={$page.url.pathname === item.href ||
+									(item.href !== '/' && $page.url.pathname.startsWith(item.href))}
+								class:font-bold={$page.url.pathname === item.href ||
 									(item.href !== '/' && $page.url.pathname.startsWith(item.href))}
 							>
-								<span>{item.icon}</span>
 								<span>{item.label}</span>
 							</a>
 						</li>

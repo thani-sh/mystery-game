@@ -185,7 +185,7 @@
 </script>
 
 <div class="max-w-7xl mx-auto">
-	<h1 class="text-3xl font-bold mb-6">{data.actor.name}</h1>
+
 
 	<div class="space-y-8">
 		<!-- Concept Preview -->

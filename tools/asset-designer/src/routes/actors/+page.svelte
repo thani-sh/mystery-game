@@ -49,8 +49,7 @@
 </script>
 
 <div class="max-w-7xl mx-auto">
-	<div class="flex justify-between items-center mb-6">
-		<h1 class="text-3xl font-bold">Actors</h1>
+	<div class="flex justify-end items-center mb-6">
 		{#if missingConceptsCount > 0}
 			<button
 				class="btn btn-primary"
