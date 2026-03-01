@@ -5,6 +5,22 @@
 	import NotificationsDropdown from '$lib/NotificationsDropdown.svelte';
 
 	let { children } = $props();
+	let syncing = $state(false);
+
+	async function handleSync() {
+		if (syncing) return;
+		syncing = true;
+		try {
+			const res = await fetch('/api/sync', { method: 'POST' });
+			if (!res.ok) throw new Error('Sync failed');
+			alert('Assets synced successfully!');
+		} catch (e) {
+			console.error(e);
+			alert('Failed to sync assets');
+		} finally {
+			syncing = false;
+		}
+	}
 
 	const navItems = [
 		{ href: '/', label: 'Home' },
@@ -46,6 +62,12 @@
 		</div>
 
 		<div class="navbar-end gap-2">
+			<button class="btn btn-primary btn-sm hidden sm:flex" disabled={syncing} onclick={handleSync}>
+				{#if syncing}
+					<span class="loading loading-spinner loading-xs"></span>
+				{/if}
+				Sync Assets
+			</button>
 			<!-- Mobile Navigation Dropdown -->
 			<div class="dropdown dropdown-end lg:hidden">
 				<button tabindex="0" class="btn btn-ghost btn-circle" aria-label="Open Menu">
@@ -66,6 +88,11 @@
 							</a>
 						</li>
 					{/each}
+					<li>
+						<button class="text-primary font-bold" disabled={syncing} onclick={handleSync}>
+							<span>Sync Assets</span>
+						</button>
+					</li>
 				</ul>
 			</div>
 

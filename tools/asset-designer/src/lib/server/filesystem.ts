@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { processAndCopyAsset } from './processing';
 
 const SPEC_DIR = path.resolve(process.cwd(), '../../docs/spec');
 const PROMPTS_DIR = path.join(SPEC_DIR, 'prompts');
@@ -153,6 +154,9 @@ export async function saveActorConcept(actorId: string, imageData: Buffer): Prom
 	// Create directory if it doesn't exist
 	await fs.mkdir(dir, { recursive: true });
 	await fs.writeFile(conceptPath, imageData);
+
+	// Process and copy
+	await processAndCopyAsset(conceptPath);
 }
 
 /**
@@ -203,6 +207,9 @@ export async function saveActorSpeech(
 	// Create directory if it doesn't exist
 	await fs.mkdir(dir, { recursive: true });
 	await fs.writeFile(speechPath, imageData);
+
+	// Process and copy
+	await processAndCopyAsset(speechPath);
 }
 
 /**
@@ -256,6 +263,9 @@ export async function saveActorFrame(
 	// Create directory if it doesn't exist
 	await fs.mkdir(dir, { recursive: true });
 	await fs.writeFile(framePath, imageData);
+
+	// Process and copy
+	await processAndCopyAsset(framePath);
 }
 
 /**

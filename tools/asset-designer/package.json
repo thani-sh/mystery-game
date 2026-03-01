@@ -40,6 +40,7 @@
 		"daisyui": "^5.5.14",
 		"gray-matter": "^4.0.3",
 		"monaco-editor": "^0.55.1",
+		"sharp": "^0.34.5",
 		"tailwindcss": "^4.1.18",
 		"zod": "^4.2.1"
 	}
