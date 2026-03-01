@@ -40,8 +40,7 @@ export interface LevelData {
   id: string;
   width: number;
   height: number;
-  // Array of layers, where each layer is a 2D grid. 0 = transparent/empty
-  tiles: number[][][];
+  background: string; // path to the static background image asset
   characters: MapCharacter[];
   playerStart: Position;
   dialogues?: Record<string, DialogueNode>;

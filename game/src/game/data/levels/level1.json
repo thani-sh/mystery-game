@@ -1,0 +1,9 @@
+{
+  "id": "level1",
+  "name": "level1",
+  "width": 42,
+  "height": 18,
+  "background": "/assets/levels/level1.webp",
+  "characters": [],
+  "playerStart": { "x": 5, "y": 5 }
+}

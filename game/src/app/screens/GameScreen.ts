@@ -37,7 +37,7 @@ export class GameScreen extends Container {
   private playerSprite!: AnimatedSprite;
 
   private moveTimer: number = 0;
-  private readonly MOVE_DURATION: number = 15;
+  private readonly MOVE_DURATION: number = 4;
   private playerStartMovePos: Position;
   private playerDirection: "down" | "up" | "left" | "right" = "down";
   private playerState: "idle" | "walk" = "idle";
@@ -73,8 +73,8 @@ export class GameScreen extends Container {
   }
 
   public async init() {
-    // Load map assets
-    await Assets.load("/assets/tilesets/village_roads/tileset.json");
+    // Load background image
+    await Assets.load(this.levelData.background);
 
     // Wait for assets to load before initializing actors
     await this.loadAndInitActors();
@@ -96,49 +96,11 @@ export class GameScreen extends Container {
   }
 
   private initMap() {
-    const tilesetTexture = Assets.cache.get("/assets/tilesets/village_roads/tileset.json");
-    const textures = tilesetTexture?.textures;
-
-    for (const layer of this.levelData.tiles) {
-      for (let y = 0; y < this.levelData.height; y++) {
-        for (let x = 0; x < this.levelData.width; x++) {
-          const tileType = layer[y][x];
-          if (tileType === 0) continue;
-
-          let texture = null;
-          if (textures) {
-            if (tileType === 1) { // grass
-              texture = textures["tile_0"];
-            } else if (tileType === 2) { // road
-              texture = textures["tile_6"];
-            } else if (tileType === 3) { // tree
-              texture = textures["tile_45"];
-            }
-          }
-
-          let displayObject;
-          if (texture) {
-            displayObject = new Sprite(texture);
-            displayObject.width = TILE_SIZE;
-            displayObject.height = TILE_SIZE;
-          } else {
-            displayObject = new Graphics();
-            if (tileType === 1) {
-              displayObject.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x228b22); // grass
-            } else if (tileType === 2) {
-              displayObject.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x808080); // road
-            } else if (tileType === 3) {
-              displayObject.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0x006400); // tree
-            } else {
-              displayObject.rect(0, 0, TILE_SIZE, TILE_SIZE).fill(0xff00ff); // unknown
-            }
-          }
-
-          displayObject.position.set(x * TILE_SIZE, y * TILE_SIZE);
-          this.mapContainer.addChild(displayObject);
-        }
-      }
-    }
+    const texture = Assets.get(this.levelData.background);
+    const bg = new Sprite(texture);
+    bg.width = this.levelData.width * TILE_SIZE;
+    bg.height = this.levelData.height * TILE_SIZE;
+    this.mapContainer.addChild(bg);
   }
 
   private initActors() {
@@ -166,7 +128,7 @@ export class GameScreen extends Container {
       // Set NPCs to look down and face idle by default
       const frames = Assets.cache.get(
         `/assets/actors/${char.id}/frames/idle.json`,
-      )?.animations?.down || [Graphics]; // Fallback if missing
+      )?.animations?.down || []; // Fallback if missing
 
       // Avoid crash if assets missing
       if (!frames || frames.length === 0) continue;
@@ -272,13 +234,21 @@ export class GameScreen extends Container {
           this.playerPos.x * TILE_SIZE + TILE_SIZE / 2,
           this.playerPos.y * TILE_SIZE + TILE_SIZE,
         );
-        this.playerState = "idle";
-        this.setActorAnimation(
-          this.playerSprite,
-          "bets",
-          this.playerState,
-          this.playerDirection,
-        );
+        // Only go idle if no movement keys are still held
+        const anyKeyHeld =
+          this.input.isKeyDown("ArrowUp") || this.input.isKeyDown("w") ||
+          this.input.isKeyDown("ArrowDown") || this.input.isKeyDown("s") ||
+          this.input.isKeyDown("ArrowLeft") || this.input.isKeyDown("a") ||
+          this.input.isKeyDown("ArrowRight") || this.input.isKeyDown("d");
+        if (!anyKeyHeld) {
+          this.playerState = "idle";
+          this.setActorAnimation(
+            this.playerSprite,
+            "bets",
+            this.playerState,
+            this.playerDirection,
+          );
+        }
       }
       return;
     }
@@ -288,19 +258,19 @@ export class GameScreen extends Container {
     let newDirection = this.playerDirection;
 
     if (this.input.isKeyDown("ArrowUp") || this.input.isKeyDown("w")) {
-      dy = -1;
+      dy = -0.25;
       newDirection = "up";
     } else if (this.input.isKeyDown("ArrowDown") || this.input.isKeyDown("s")) {
-      dy = 1;
+      dy = 0.25;
       newDirection = "down";
     } else if (this.input.isKeyDown("ArrowLeft") || this.input.isKeyDown("a")) {
-      dx = -1;
+      dx = -0.25;
       newDirection = "left";
     } else if (
       this.input.isKeyDown("ArrowRight") ||
       this.input.isKeyDown("d")
     ) {
-      dx = 1;
+      dx = 0.25;
       newDirection = "right";
     }
 
@@ -357,12 +327,6 @@ export class GameScreen extends Container {
       y >= this.levelData.height
     )
       return false;
-
-    // Check all layers for obstacles (1: grass, 3: tree)
-    for (const layer of this.levelData.tiles) {
-      const tileType = layer[y][x];
-      if (tileType === 1 || tileType === 3) return false;
-    }
 
     if (this.getCharacterAt(x, y)) return false;
 

@@ -1,6 +1,6 @@
 import { Application } from "pixi.js";
 import { GameScreen } from "./app/screens/GameScreen";
-import levelData from "./game/data/levels/village_crossroads.json";
+import levelData from "./game/data/levels/level1.json";
 import { LevelData } from "./game/data/types";
 import { InputSystem } from "./engine/utils/Input";
 
