@@ -24,7 +24,8 @@
 
 	const navItems = [
 		{ href: '/', label: 'Home' },
-		{ href: '/actors', label: 'Actors' }
+		{ href: '/actors', label: 'Actors' },
+		{ href: '/levels', label: 'Levels' }
 	];
 </script>
 

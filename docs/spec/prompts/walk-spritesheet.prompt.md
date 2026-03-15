@@ -24,4 +24,6 @@ Generate a spritesheet for the character's walking animation.
   - DO NOT copy the layout, grid density, or whitespace sizing of the wireframe.
   - You MUST use the full canvas exclusively for the generated character's 4x4 grid.
 
+- **Quality & Consistency**: Maintain a high-quality rendering. The character must wear the exact same set of clothes across all frames.
+- **Details**: Pay special attention to the character's facing directions and ensure the eyes are distinct, accurately placed, and looking in the correct direction for each perspective.
 - **Reference**: Follow all "Spritesheets" guidelines from the system prompt. Use the idle spritesheet as a strict reference to maintain consistent character style, proportions, and visual appearance across all 4 frames. The character design must not change, only the pose.

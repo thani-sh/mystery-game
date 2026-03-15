@@ -284,3 +284,39 @@ export async function getActorFrameDataUrl(
 		return null;
 	}
 }
+
+/**
+ * Get all levels
+ */
+export async function getLevels(): Promise<string[]> {
+	const levelsDir = path.join(ASSETS_DIR, 'levels');
+	try {
+		const files = await fs.readdir(levelsDir);
+		return files
+			.filter(f => f.endsWith('.webp') || f.endsWith('.png') || f.endsWith('.jpg'))
+			.map(f => f.replace(/\.[^/.]+$/, ''));
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Get level JSON data
+ */
+export async function getLevelJson(id: string): Promise<string | null> {
+	try {
+		const filePath = path.join(ASSETS_DIR, 'levels', `${id}.json`);
+		const content = await fs.readFile(filePath, 'utf-8');
+		return content;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Update level JSON data
+ */
+export async function updateLevelJson(id: string, content: string): Promise<void> {
+	const filePath = path.join(ASSETS_DIR, 'levels', `${id}.json`);
+	await fs.writeFile(filePath, content, 'utf-8');
+}

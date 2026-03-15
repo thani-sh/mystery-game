@@ -13,7 +13,6 @@ export interface GenerateImageOptions {
 	systemInstruction?: string; // Optional system instruction
 }
 
-
 /**
  * Generate text using Gemini Flash
  */
@@ -143,7 +142,6 @@ export async function generateImage(
 	}
 }
 
-
 /**
  * Build a prompt for concept art generation
  */
@@ -156,7 +154,6 @@ export function buildConceptPrompt(
 		prompt: `Character Description:\n${characterDescription}`
 	};
 }
-
 
 /**
  * Build a prompt for portrait generation

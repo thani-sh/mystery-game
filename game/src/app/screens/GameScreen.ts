@@ -1,4 +1,11 @@
-import { Container, Graphics, Text, Assets, AnimatedSprite, Sprite } from "pixi.js";
+import {
+  Container,
+  Graphics,
+  Text,
+  Assets,
+  AnimatedSprite,
+  Sprite,
+} from "pixi.js";
 import {
   LevelData,
   Position,
@@ -36,19 +43,18 @@ export class GameScreen extends Container {
   private actorSprites: Record<string, AnimatedSprite> = {};
   private playerSprite!: AnimatedSprite;
 
-  private moveTimer: number = 0;
-  private readonly MOVE_DURATION: number = 4;
-  private playerStartMovePos: Position;
   private playerDirection: "down" | "up" | "left" | "right" = "down";
   private playerState: "idle" | "walk" = "idle";
 
   private input: InputSystem;
 
+  // Throttle interactions
+  private interactCooldown: number = 0;
+
   constructor(levelData: LevelData) {
     super();
     this.levelData = levelData;
     this.playerPos = { ...levelData.playerStart };
-    this.playerStartMovePos = { ...levelData.playerStart };
     this.input = InputSystem.getInstance();
 
     this.mapContainer = new Container();
@@ -98,12 +104,15 @@ export class GameScreen extends Container {
   private initMap() {
     const texture = Assets.get(this.levelData.background);
     const bg = new Sprite(texture);
-    bg.width = this.levelData.width * TILE_SIZE;
-    bg.height = this.levelData.height * TILE_SIZE;
+    const bgScale = this.levelData.scalingFactor ?? 1;
+    // Scale background
+    bg.scale.set(bgScale);
     this.mapContainer.addChild(bg);
   }
 
   private initActors() {
+    const bgScale = this.levelData.scalingFactor ?? 1;
+
     // Player
     const playerFrames = Assets.cache.get(
       "/assets/actors/bets/frames/idle.json",
@@ -116,8 +125,8 @@ export class GameScreen extends Container {
     this.playerSprite.anchor.set(0.5, 1.0);
     this.playerSprite.animationSpeed = 0.1;
     this.playerSprite.position.set(
-      this.playerPos.x * TILE_SIZE + TILE_SIZE / 2,
-      this.playerPos.y * TILE_SIZE + TILE_SIZE,
+      this.playerPos.x * bgScale,
+      this.playerPos.y * bgScale,
     );
     this.playerSprite.zIndex = this.playerSprite.y;
     this.playerSprite.play();
@@ -126,9 +135,9 @@ export class GameScreen extends Container {
     // NPCs
     for (const char of this.levelData.characters) {
       // Set NPCs to look down and face idle by default
-      const frames = Assets.cache.get(
-        `/assets/actors/${char.id}/frames/idle.json`,
-      )?.animations?.down || []; // Fallback if missing
+      const frames =
+        Assets.cache.get(`/assets/actors/${char.id}/frames/idle.json`)
+          ?.animations?.down || []; // Fallback if missing
 
       // Avoid crash if assets missing
       if (!frames || frames.length === 0) continue;
@@ -141,8 +150,8 @@ export class GameScreen extends Container {
       sprite.anchor.set(0.5, 1.0);
       sprite.animationSpeed = 0.1;
       sprite.position.set(
-        char.position.x * TILE_SIZE + TILE_SIZE / 2,
-        char.position.y * TILE_SIZE + TILE_SIZE,
+        char.position.x * bgScale,
+        char.position.y * bgScale,
       );
       sprite.zIndex = sprite.y;
       sprite.play();
@@ -191,6 +200,10 @@ export class GameScreen extends Container {
   }
 
   public update(delta: number) {
+    if (this.interactCooldown > 0) {
+      this.interactCooldown -= delta;
+    }
+
     if (this.currentDialogueNodeId) {
       if (this.playerState === "walk") {
         this.playerState = "idle";
@@ -209,134 +222,153 @@ export class GameScreen extends Container {
   }
 
   private handleMovement(delta: number) {
-    if (this.moveTimer > 0) {
-      this.moveTimer -= delta;
-
-      // Interpolate position
-      const progress = 1 - Math.max(0, this.moveTimer / this.MOVE_DURATION);
-      const visualX =
-        this.playerStartMovePos.x +
-        (this.playerPos.x - this.playerStartMovePos.x) * progress;
-      const visualY =
-        this.playerStartMovePos.y +
-        (this.playerPos.y - this.playerStartMovePos.y) * progress;
-
-      this.playerSprite.position.set(
-        visualX * TILE_SIZE + TILE_SIZE / 2,
-        visualY * TILE_SIZE + TILE_SIZE,
-      );
-      this.playerSprite.zIndex = this.playerSprite.y;
-      this.updateCamera(visualX, visualY);
-
-      if (this.moveTimer <= 0) {
-        // Snap to grid at end of movement
-        this.playerSprite.position.set(
-          this.playerPos.x * TILE_SIZE + TILE_SIZE / 2,
-          this.playerPos.y * TILE_SIZE + TILE_SIZE,
-        );
-        // Only go idle if no movement keys are still held
-        const anyKeyHeld =
-          this.input.isKeyDown("ArrowUp") || this.input.isKeyDown("w") ||
-          this.input.isKeyDown("ArrowDown") || this.input.isKeyDown("s") ||
-          this.input.isKeyDown("ArrowLeft") || this.input.isKeyDown("a") ||
-          this.input.isKeyDown("ArrowRight") || this.input.isKeyDown("d");
-        if (!anyKeyHeld) {
-          this.playerState = "idle";
-          this.setActorAnimation(
-            this.playerSprite,
-            "bets",
-            this.playerState,
-            this.playerDirection,
-          );
-        }
-      }
-      return;
-    }
+    const speed = 4 * delta;
+    const bgScale = this.levelData.scalingFactor ?? 1;
 
     let dx = 0;
     let dy = 0;
     let newDirection = this.playerDirection;
 
     if (this.input.isKeyDown("ArrowUp") || this.input.isKeyDown("w")) {
-      dy = -0.25;
+      dy = -1;
       newDirection = "up";
     } else if (this.input.isKeyDown("ArrowDown") || this.input.isKeyDown("s")) {
-      dy = 0.25;
+      dy = 1;
       newDirection = "down";
-    } else if (this.input.isKeyDown("ArrowLeft") || this.input.isKeyDown("a")) {
-      dx = -0.25;
+    }
+
+    if (this.input.isKeyDown("ArrowLeft") || this.input.isKeyDown("a")) {
+      dx = -1;
       newDirection = "left";
     } else if (
       this.input.isKeyDown("ArrowRight") ||
       this.input.isKeyDown("d")
     ) {
-      dx = 0.25;
+      dx = 1;
       newDirection = "right";
     }
 
+    // Interaction handling - trigger talk if near an NPC
+    if ((this.input.isKeyDown("e") || this.input.isKeyDown("Enter") || this.input.isKeyDown(" ")) && this.interactCooldown <= 0) {
+      const interactRadius = 64; // distance in pixels
+      const char = this.getCharacterNear(this.playerPos.x, this.playerPos.y, interactRadius);
+      if (char && char.interactable && char.dialogueStart) {
+        this.startDialogue(char.dialogueStart);
+        this.interactCooldown = 10; // short cooldown
+        return;
+      }
+    }
+
     if (dx !== 0 || dy !== 0) {
+      // Normalize vector
+      const length = Math.sqrt(dx * dx + dy * dy);
+      dx = (dx / length) * speed;
+      dy = (dy / length) * speed;
+
       this.playerDirection = newDirection;
       const newX = this.playerPos.x + dx;
       const newY = this.playerPos.y + dy;
 
-      if (this.canMoveTo(newX, newY)) {
-        this.playerStartMovePos = { ...this.playerPos };
+      // Move independently in axes for sliding along walls
+      if (this.canMoveTo(newX, this.playerPos.y)) {
         this.playerPos.x = newX;
-        this.playerPos.y = newY;
-
-        this.moveTimer = this.MOVE_DURATION;
-        this.playerState = "walk";
-        this.setActorAnimation(
-          this.playerSprite,
-          "bets",
-          this.playerState,
-          this.playerDirection,
-        );
-      } else {
-        // Prevent sliding into a wall but update direction
-        this.setActorAnimation(
-          this.playerSprite,
-          "bets",
-          "idle",
-          this.playerDirection,
-        );
-
-        // Check interact
-        const char = this.getCharacterAt(newX, newY);
-        if (char && char.interactable && char.dialogueStart) {
-          this.startDialogue(char.dialogueStart);
-          this.moveTimer = this.MOVE_DURATION; // cooldown to prevent instant skip
-        }
       }
-    } else if (this.playerState === "walk") {
-      this.playerState = "idle";
+      if (this.canMoveTo(this.playerPos.x, newY)) {
+        this.playerPos.y = newY;
+      }
+
+      this.playerState = "walk";
       this.setActorAnimation(
         this.playerSprite,
         "bets",
         this.playerState,
         this.playerDirection,
       );
+
+      this.playerSprite.position.set(
+        this.playerPos.x * bgScale,
+        this.playerPos.y * bgScale,
+      );
+      this.playerSprite.zIndex = this.playerSprite.y;
+      this.updateCamera();
+    } else {
+      if (this.playerState === "walk") {
+        this.playerState = "idle";
+        this.setActorAnimation(
+          this.playerSprite,
+          "bets",
+          this.playerState,
+          this.playerDirection,
+        );
+      }
     }
   }
 
   private canMoveTo(x: number, y: number): boolean {
-    if (
-      x < 0 ||
-      x >= this.levelData.width ||
-      y < 0 ||
-      y >= this.levelData.height
-    )
-      return false;
+    const rx = 16; // player collision radius/width
+    const ry = 10; // player collision height
 
-    if (this.getCharacterAt(x, y)) return false;
+    // Convert to unscaled map pixels
+    const px = x;
+    const py = y;
+
+    // Get true width/height from imageResolution
+    const mapWidthInPixels = this.levelData.imageResolution.width;
+    const mapHeightInPixels = this.levelData.imageResolution.height;
+
+    if (
+      px - rx < 0 ||
+      px + rx > mapWidthInPixels ||
+      py - ry * 2 < 0 ||
+      py > mapHeightInPixels
+    ) {
+      return false;
+    }
+
+    if (this.levelData.collisions) {
+      for (const rect of this.levelData.collisions) {
+        // Simple AABB overlap check with the player's foot boundary
+        if (
+          px + rx > rect.x &&
+          px - rx < rect.x + rect.w &&
+          py > rect.y &&
+          py - ry * 2 < rect.y + rect.h
+        ) {
+          return false;
+        }
+      }
+    }
+
+    // Check collision with NPCs
+    const npcCollisionRadius = 24;
+    for (const char of this.levelData.characters) {
+        const dx = char.position.x - x;
+        const dy = char.position.y - y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < npcCollisionRadius) {
+            return false;
+        }
+    }
 
     return true;
   }
 
-  private getCharacterAt(x: number, y: number) {
-    return this.levelData.characters.find(
-      (c) => c.position.x === x && c.position.y === y,
-    );
+  private getCharacterNear(x: number, y: number, radius: number) {
+    let closestChar = null;
+    let closestDist = radius;
+
+    for (const char of this.levelData.characters) {
+      const dx = char.position.x - x;
+      const dy = char.position.y - y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestChar = char;
+      }
+    }
+
+    return closestChar;
   }
 
   private startDialogue(dialogueStart: string) {
@@ -434,9 +466,10 @@ export class GameScreen extends Container {
         char.position = { ...action.target };
         // update sprite
         if (this.actorSprites[char.id]) {
+          const bgScale = this.levelData.scalingFactor ?? 1;
           this.actorSprites[char.id].position.set(
-            char.position.x * TILE_SIZE + TILE_SIZE / 2,
-            char.position.y * TILE_SIZE + TILE_SIZE,
+            char.position.x * bgScale,
+            char.position.y * bgScale,
           );
           this.actorSprites[char.id].zIndex = this.actorSprites[char.id].y;
         }
@@ -453,16 +486,20 @@ export class GameScreen extends Container {
     visualTargetX: number = this.playerPos.x,
     visualTargetY: number = this.playerPos.y,
   ) {
+    const bgScale = this.levelData.scalingFactor ?? 1;
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
 
-    const mapWidth = this.levelData.width * TILE_SIZE;
-    const mapHeight = this.levelData.height * TILE_SIZE;
+    const mapWidthInPixels = this.levelData.imageResolution.width;
+    const mapHeightInPixels = this.levelData.imageResolution.height;
+
+    const mapWidth = mapWidthInPixels * bgScale;
+    const mapHeight = mapHeightInPixels * bgScale;
 
     // Target camera position (center on player)
-    let targetX = screenWidth / 2 - (visualTargetX * TILE_SIZE + TILE_SIZE / 2);
+    let targetX = screenWidth / 2 - (visualTargetX * bgScale);
     let targetY =
-      screenHeight / 2 - (visualTargetY * TILE_SIZE + TILE_SIZE / 2);
+      screenHeight / 2 - (visualTargetY * bgScale);
 
     // Clamp camera so it doesn't show outside the map
     if (mapWidth > screenWidth) {

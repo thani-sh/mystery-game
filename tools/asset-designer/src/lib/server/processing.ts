@@ -240,14 +240,26 @@ export async function syncAllAssets(): Promise<void> {
 
 	const files = await getFiles(ASSETS_DIR);
 	const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+	const allowedExtensions = [...imageExtensions, '.json'];
 
 	for (const sourcePath of files) {
-		const isImage = imageExtensions.some((ext) => sourcePath.toLowerCase().endsWith(ext));
+		const isAllowed = allowedExtensions.some((ext) => sourcePath.toLowerCase().endsWith(ext));
 
-		if (!isImage) {
-			console.log(`  ⏭️  Skipping non-image: ${relative(ASSETS_DIR, sourcePath)}`);
+		if (!isAllowed) {
+			console.log(`  ⏭️  Skipping unhandled file: ${relative(ASSETS_DIR, sourcePath)}`);
 			continue;
 		}
+
+		if (sourcePath.toLowerCase().endsWith('.json')) {
+			// Just copy JSON files directly
+			const relativePath = relative(ASSETS_DIR, sourcePath);
+			const targetPath = join(TARGET_DIR, relativePath);
+			await mkdir(dirname(targetPath), { recursive: true });
+			await copyFile(sourcePath, targetPath);
+			console.log(`  📋 Copying JSON: ${relativePath}`);
+			continue;
+		}
+
 
 		await processAndCopyAsset(sourcePath);
 	}

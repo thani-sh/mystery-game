@@ -38,11 +38,19 @@ export interface MapCharacter {
 
 export interface LevelData {
   id: string;
-  width: number;
-  height: number;
   background: string; // path to the static background image asset
+  scalingFactor?: number;
+  imageResolution: { width: number; height: number };
   characters: MapCharacter[];
   playerStart: Position;
   dialogues?: Record<string, DialogueNode>;
   scripts?: Record<string, Action[]>;
+  collisions?: Rectangle[];
+}
+
+export interface Rectangle {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
