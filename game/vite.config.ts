@@ -5,5 +5,6 @@ export default defineConfig({
   server: {
     port: 8080,
     open: false,
+    allowedHosts: true, // allow trycloudflare/ngrok-style tunnels during dev
   },
 });
