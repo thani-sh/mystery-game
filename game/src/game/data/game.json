@@ -1,0 +1,5 @@
+{
+  "startScene": "level",
+  "startLevel": "level1",
+  "defaultPlayerActorId": "bets"
+}

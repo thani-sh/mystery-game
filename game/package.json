@@ -8,6 +8,7 @@
     "build": "npm run lint && tsc && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "validate:content": "node scripts/validate-content.mjs",
     "dev": "vite"
   },
   "dependencies": {

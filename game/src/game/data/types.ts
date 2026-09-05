@@ -103,3 +103,11 @@ export interface LevelConfig {
   exits?: LevelExit[]; // NEW: walk-out-of-level transitions
   collisions?: Rectangle[];
 }
+
+// --- Boot config (game.json): which scene/level/actor the app starts on ------
+
+export interface GameConfig {
+  startScene: string;
+  startLevel: string;
+  defaultPlayerActorId: string;
+}
