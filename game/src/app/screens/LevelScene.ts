@@ -21,6 +21,11 @@ import { runActions } from "../../game/systems/ActionRunner";
 import type { WorldHooks } from "../../game/systems/ActionRunner";
 import { preloadLevel } from "../../game/systems/AssetLoader";
 import { visibleChoices } from "../../game/systems/visibleChoices";
+import {
+  exitAt,
+  flagNameFor,
+  overlappingTriggers,
+} from "../../game/systems/zones";
 import { DialogueBox } from "../ui/DialogueBox";
 
 const TILE_SIZE = 64;
@@ -65,6 +70,16 @@ export class LevelScene extends Container implements Scene {
   private currentDialogueNodeId: string | null = null;
   /** The flag-filtered choices of the node being shown (selection indexes align with the DialogueBox rows). */
   private currentDialogueChoices: DialogueChoice[] = [];
+
+  /**
+   * Enter/exit edge tracking for trigger + exit zones. Zone keys (see
+   * checkZoneTransitions) are entered ONCE — on the frame they appear in the
+   * current overlap but not the previous one — so scripts fire when the
+   * player walks INTO a zone, never on every frame spent inside it. Keys
+   * leaving the overlap reset membership, so re-entering the same zone (a
+   * repeatable trigger, or a consumed exit avoided in time) fires again.
+   */
+  private prevOverlapZones: Set<string> = new Set();
 
   private actorSprites: Record<string, AnimatedSprite> = {};
   private playerSprite!: AnimatedSprite;
@@ -257,6 +272,10 @@ export class LevelScene extends Container implements Scene {
     }
 
     this.handleMovement(delta);
+    // Trigger/exit overlap checks run AFTER movement (against the moved
+    // position) and independently of interaction. A dialogue opening this
+    // frame pauses the world, so zones are never evaluated mid-dialogue.
+    this.checkZoneTransitions();
   }
 
   private handleMovement(delta: number) {
@@ -349,6 +368,66 @@ export class LevelScene extends Container implements Scene {
         );
       }
     }
+  }
+
+  /**
+   * Enter-edge detection for trigger scripts and level exits, run once per
+   * frame AFTER movement against the player's current (unscaled map-pixel)
+   * position.
+   *
+   * Membership is recomputed each frame into a fresh set; a zone key fires
+   * exactly when it overlaps now but did not overlap on the previous frame —
+   * i.e. the player walked INTO it. Keys absent from the current overlap drop
+   * out of the remembered set automatically, so leaving and re-entering a
+   * repeatable (once:false) trigger fires it again, while `once` triggers are
+   * additionally consumed through a GameState flag (survives scene reloads).
+   *
+   * Exits fire their level transition the same way. The scene is replaced by
+   * the goto, but the key is still recorded for the frame so a deferred swap
+   * (async init of the next level) cannot double-fire the transition.
+   */
+  private checkZoneTransitions(): void {
+    const levelId = this.level.id;
+    const activeTriggers = overlappingTriggers(
+      this.level,
+      this.playerPos,
+      (flag) => this.gameState.hasFlag(flag),
+    );
+    const exit = exitAt(this.level, this.playerPos);
+
+    // The zones overlapping the player THIS frame. Trigger keys reuse the
+    // consumption-flag namespace (`trigger:<level>:<id>` via flagNameFor);
+    // exits use an `exit:` prefix so a trigger and an exit never collide in
+    // the same overlap set.
+    const overlapNow = new Set<string>();
+    for (const trigger of activeTriggers) {
+      overlapNow.add(flagNameFor(levelId, trigger.id));
+    }
+    if (exit) {
+      overlapNow.add(`exit:${levelId}:${exit.id}`);
+    }
+
+    // Fire trigger scripts on zone ENTRY only.
+    for (const trigger of activeTriggers) {
+      const key = flagNameFor(levelId, trigger.id);
+      if (this.prevOverlapZones.has(key)) continue; // already inside — not an entry
+
+      const script = this.level.scripts?.[trigger.scriptId] ?? [];
+      runActions(script, this.hooks);
+      if (trigger.once !== false) {
+        this.gameState.setFlag(key);
+      }
+    }
+
+    // Fire the first exit whose zone the player just entered.
+    if (exit) {
+      const key = `exit:${levelId}:${exit.id}`;
+      if (!this.prevOverlapZones.has(key)) {
+        this.onLoadLevel?.(exit.targetLevel, exit.spawn);
+      }
+    }
+
+    this.prevOverlapZones = overlapNow;
   }
 
   private canMoveTo(x: number, y: number): boolean {
