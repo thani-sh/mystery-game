@@ -1,0 +1,194 @@
+{
+  "id": "level2",
+  "title": "The Glade",
+  "background": "/assets/levels/level2.webp",
+  "imageResolution": {
+    "width": 2000,
+    "height": 1500
+  },
+  "scalingFactor": 1,
+  "player": {
+    "actorId": "bets",
+    "start": {
+      "x": 500,
+      "y": 750
+    }
+  },
+  "actors": [
+    {
+      "id": "ern",
+      "actorId": "ern",
+      "position": {
+        "x": 1200,
+        "y": 900
+      },
+      "interactable": true,
+      "dialogueStart": "ern_intro"
+    },
+    {
+      "id": "daisy2",
+      "actorId": "daisy",
+      "position": {
+        "x": 800,
+        "y": 1100
+      },
+      "interactable": true,
+      "dialogueStart": "daisy_level2"
+    }
+  ],
+  "dialogues": {
+    "ern_intro": {
+      "speaker": "ern",
+      "text": "Halt! State your business in the glade.",
+      "choices": [
+        {
+          "text": "Who are you?",
+          "next": "ern_who"
+        },
+        {
+          "text": "Just passing through.",
+          "next": "ern_pass"
+        }
+      ]
+    },
+    "ern_who": {
+      "speaker": "ern",
+      "text": "Ern. I guard this glade. And you look like trouble.",
+      "choices": [
+        {
+          "text": "I helped Daisy in the village.",
+          "next": "ern_daisy"
+        },
+        {
+          "text": "Trouble is my middle name.",
+          "scriptId": "ern_tease"
+        },
+        {
+          "text": "(Ask about the old shrine)",
+          "requiresFlag": "found_shrine",
+          "next": "ern_shrine"
+        }
+      ]
+    },
+    "ern_daisy": {
+      "speaker": "ern",
+      "text": "Daisy? Hah — then you are welcome here. She is a friend of the glade.",
+      "choices": [
+        {
+          "text": "Thanks. See you around."
+        }
+      ]
+    },
+    "ern_pass": {
+      "speaker": "ern",
+      "text": "Good. Keep walking, stranger.",
+      "choices": [
+        {
+          "text": "Bye."
+        }
+      ]
+    },
+    "ern_tease": {
+      "speaker": "ern",
+      "text": "Then the glade will teach you manners. Mind the trees.",
+      "choices": [
+        {
+          "text": "Noted. Farewell."
+        }
+      ]
+    },
+    "ern_shrine": {
+      "speaker": "ern",
+      "text": "So you found the shrine? Good eye, friend. Few do.",
+      "choices": [
+        {
+          "text": "It was just lying there."
+        }
+      ]
+    },
+    "daisy_level2": {
+      "speaker": "daisy",
+      "text": "Fancy meeting you here! The glade is lovely this time of year.",
+      "choices": [
+        {
+          "text": "Indeed it is. Bye for now."
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "ern_tease": [
+      {
+        "type": "set_flag",
+        "flag": "ern_teased"
+      }
+    ],
+    "found_shrine": [
+      {
+        "type": "set_flag",
+        "flag": "found_shrine"
+      }
+    ]
+  },
+  "triggers": [
+    {
+      "id": "shrine_area",
+      "zone": {
+        "x": 1600,
+        "y": 250,
+        "w": 250,
+        "h": 250
+      },
+      "once": true,
+      "scriptId": "found_shrine"
+    }
+  ],
+  "exits": [
+    {
+      "id": "to_village",
+      "zone": {
+        "x": 700,
+        "y": 1420,
+        "w": 600,
+        "h": 60
+      },
+      "targetLevel": "level1",
+      "spawn": {
+        "x": 2134,
+        "y": 1391
+      }
+    }
+  ],
+  "collisions": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 2000,
+      "h": 20
+    },
+    {
+      "x": 0,
+      "y": 1480,
+      "w": 2000,
+      "h": 20
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "w": 20,
+      "h": 1500
+    },
+    {
+      "x": 1980,
+      "y": 0,
+      "w": 20,
+      "h": 1500
+    },
+    {
+      "x": 1000,
+      "y": 300,
+      "w": 120,
+      "h": 120
+    }
+  ]
+}

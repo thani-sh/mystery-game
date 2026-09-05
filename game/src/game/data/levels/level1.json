@@ -575,7 +575,8 @@
         "x": 2670,
         "y": 1227
       },
-      "interactable": true
+      "interactable": true,
+      "dialogueStart": "daisy_greet"
     },
     {
       "id": "goon",
@@ -585,6 +586,65 @@
         "y": 2305
       },
       "interactable": true
+    }
+  ],
+  "dialogues": {
+    "daisy_greet": {
+      "speaker": "daisy",
+      "text": "Oh! Hello there. I was just picking flowers.",
+      "choices": [
+        {
+          "text": "Hello, Daisy.",
+          "next": "daisy_hello"
+        }
+      ]
+    },
+    "daisy_hello": {
+      "speaker": "daisy",
+      "text": "The village has been quiet lately... almost too quiet.",
+      "choices": [
+        {
+          "text": "Anything strange lately?",
+          "next": "daisy_strange"
+        },
+        {
+          "text": "I should keep moving."
+        }
+      ]
+    },
+    "daisy_strange": {
+      "speaker": "daisy",
+      "text": "The old mill on the hill — lights flicker there at night. No one goes near it now.",
+      "choices": [
+        {
+          "text": "I will check it out. Stay safe, Daisy.",
+          "scriptId": "promise_check"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "promise_check": [
+      {
+        "type": "set_flag",
+        "flag": "promised_daisy"
+      }
+    ]
+  },
+  "exits": [
+    {
+      "id": "to_glade",
+      "zone": {
+        "x": 2400,
+        "y": 1300,
+        "w": 250,
+        "h": 250
+      },
+      "targetLevel": "level2",
+      "spawn": {
+        "x": 2134,
+        "y": 1391
+      }
     }
   ]
 }

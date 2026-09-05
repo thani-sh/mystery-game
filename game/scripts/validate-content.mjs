@@ -204,6 +204,21 @@ for (const file of listJsonFiles(CHARACTERS_DIR)) {
 const levelIds = new Set(); // id -> filename, first file wins
 const levelIdFile = new Map();
 
+// Pre-register every level id before per-file checks so cross-level
+// references (exits) resolve regardless of file scan order — a level may
+// target one scanned later (e.g. level1.json -> level2.json).
+const allLevelIds = new Set();
+for (const preFile of listJsonFiles(LEVELS_DIR)) {
+  const preData = readJsonFile(
+    `levels/${preFile}`,
+    path.join(LEVELS_DIR, preFile),
+  );
+  const preId = isRecord(preData) ? preData.id : undefined;
+  if (typeof preId === "string" && preId.length > 0) {
+    allLevelIds.add(preId);
+  }
+}
+
 for (const file of listJsonFiles(LEVELS_DIR)) {
   const label = `levels/${file}`;
   const data = readJsonFile(label, path.join(LEVELS_DIR, file));
@@ -370,7 +385,7 @@ for (const file of listJsonFiles(LEVELS_DIR)) {
         const exitId = exit.id ?? index;
         if (typeof exit.targetLevel !== "string") {
           error(`${label} — exit "${exitId}" missing targetLevel`);
-        } else if (!levelIds.has(exit.targetLevel)) {
+        } else if (!allLevelIds.has(exit.targetLevel)) {
           error(
             `${label} — exit "${exitId}" targetLevel "${exit.targetLevel}" ` +
               "does not resolve to any scanned level",
