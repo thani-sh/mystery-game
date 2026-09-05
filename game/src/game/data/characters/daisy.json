@@ -2,6 +2,6 @@
   "id": "daisy",
   "name": "Daisy",
   "sprite": "daisy",
-  "scale": 1,
+  "scale": 4,
   "displayName": "Daisy"
 }
