@@ -1,12 +1,14 @@
-# poc-mystery-game
+# mystery-game
 
 A proof-of-concept repository for a web-based 2D mystery investigation game.
+
+> **Agents (human or AI): read [AGENTS.md](./AGENTS.md) first** — it documents the current architecture, content schema, and the commands/gates to follow.
 
 ## Repository Structure
 
 ```
-poc-mystery-game/
-├── docs/           # Documentation and Architectural Decision Records
+mystery-game/
+├── docs/           # Documentation and Architectural Decision Records (+ plans/)
 ├── game/           # The PixiJS-based mystery game application
 └── tools/          # Development tools for asset creation
 ```
@@ -27,7 +29,7 @@ See [tools/README.md](./tools/README.md) for more information.
 
 ## Game Application
 
-The main game application is in the [game](./game) directory. See the [game README](./game/README.md) for setup instructions and development details.
+The main game application is in the [game](./game) directory. See [AGENTS.md](./AGENTS.md) for setup, structure, and development instructions.
 
 ## Quick Start
 
