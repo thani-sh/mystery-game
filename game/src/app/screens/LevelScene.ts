@@ -400,7 +400,10 @@ export class LevelScene extends Container implements Scene {
     }
 
     // Fire the first exit whose zone the player just entered.
-    if (exit && !this.prevOverlapZones.has(`exit:${this.level.id}:${exit.id}`)) {
+    if (
+      exit &&
+      !this.prevOverlapZones.has(`exit:${this.level.id}:${exit.id}`)
+    ) {
       this.onLoadLevel?.(exit.targetLevel, exit.spawn);
     }
 

@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LevelExit, Position, Rectangle, Trigger } from "../data/types";
-import { evaluateZoneEvents, exitAt, flagNameFor, overlappingTriggers, pointInZone } from "./zones";
+import {
+  evaluateZoneEvents,
+  exitAt,
+  flagNameFor,
+  overlappingTriggers,
+  pointInZone,
+} from "./zones";
 
 const rect = (x: number, y: number, w: number, h: number): Rectangle => ({
   x,
@@ -202,19 +208,32 @@ describe("game/systems/zones — exitAt", () => {
 });
 
 describe("game/systems/zones — evaluateZoneEvents (frame decision)", () => {
-  const level = (over: Partial<Record<string, unknown>> = {}) => ({
-    id: "level1",
-    triggers: [
-      { id: "t_once", zone: rect(0, 0, 10, 10), once: true, scriptId: "s1" },
-      { id: "t_repeat", zone: rect(100, 0, 10, 10), once: false, scriptId: "s2" },
-    ],
-    exits: [{ id: "exit1", zone: rect(200, 0, 10, 10), targetLevel: "level2", spawn: { x: 1, y: 2 } }],
-    scripts: {
-      s1: [{ type: "set_flag", flag: "a" }],
-      s2: [{ type: "clear_flag", flag: "b" }],
-    },
-    ...over,
-  } as Parameters<typeof evaluateZoneEvents>[0]);
+  const level = (over: Partial<Record<string, unknown>> = {}) =>
+    ({
+      id: "level1",
+      triggers: [
+        { id: "t_once", zone: rect(0, 0, 10, 10), once: true, scriptId: "s1" },
+        {
+          id: "t_repeat",
+          zone: rect(100, 0, 10, 10),
+          once: false,
+          scriptId: "s2",
+        },
+      ],
+      exits: [
+        {
+          id: "exit1",
+          zone: rect(200, 0, 10, 10),
+          targetLevel: "level2",
+          spawn: { x: 1, y: 2 },
+        },
+      ],
+      scripts: {
+        s1: [{ type: "set_flag", flag: "a" }],
+        s2: [{ type: "clear_flag", flag: "b" }],
+      },
+      ...over,
+    }) as Parameters<typeof evaluateZoneEvents>[0];
 
   const none = () => false;
 
@@ -260,7 +279,9 @@ describe("game/systems/zones — evaluateZoneEvents (frame decision)", () => {
     expect(inside.events).toEqual([]);
     // left, then re-entered: fires again
     const reentry = evaluateZoneEvents(level(), at(105, 5), none, new Set());
-    expect(reentry.events.map((e) => e.key)).toEqual(["trigger:level1:t_repeat"]);
+    expect(reentry.events.map((e) => e.key)).toEqual([
+      "trigger:level1:t_repeat",
+    ]);
   });
 
   it("entering an exit reports it (and its key) once", () => {
@@ -281,8 +302,22 @@ describe("game/systems/zones — evaluateZoneEvents (frame decision)", () => {
   it("fires a trigger and an exit simultaneously when both entered", () => {
     const lvl = {
       id: "level1",
-      triggers: [{ id: "t_once", zone: rect(0, 0, 300, 300), once: true, scriptId: "s1" }],
-      exits: [{ id: "exit1", zone: rect(200, 0, 10, 10), targetLevel: "level2", spawn: { x: 1, y: 2 } }],
+      triggers: [
+        {
+          id: "t_once",
+          zone: rect(0, 0, 300, 300),
+          once: true,
+          scriptId: "s1",
+        },
+      ],
+      exits: [
+        {
+          id: "exit1",
+          zone: rect(200, 0, 10, 10),
+          targetLevel: "level2",
+          spawn: { x: 1, y: 2 },
+        },
+      ],
       scripts: { s1: [{ type: "set_flag", flag: "a" }] },
     } as Parameters<typeof evaluateZoneEvents>[0];
     const r = evaluateZoneEvents(lvl, at(205, 5), none, new Set());
@@ -291,7 +326,10 @@ describe("game/systems/zones — evaluateZoneEvents (frame decision)", () => {
   });
 
   it("missing scriptId resolves to an empty action list (never throws)", () => {
-    const lvl = level({ triggers: [{ id: "t", zone: rect(0, 0, 10, 10), scriptId: "nope" }], scripts: {} });
+    const lvl = level({
+      triggers: [{ id: "t", zone: rect(0, 0, 10, 10), scriptId: "nope" }],
+      scripts: {},
+    });
     const r = evaluateZoneEvents(lvl, at(5, 5), none, new Set());
     expect(r.events[0].script).toEqual([]);
   });
