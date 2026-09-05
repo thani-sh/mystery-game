@@ -13,12 +13,11 @@ describe("game/data/types module", () => {
 
   it("still exports every core content type name", () => {
     expectTypeOf<types.Position>().not.toBeNever();
-    expectTypeOf<types.CharacterData>().not.toBeNever();
+    expectTypeOf<types.ActorConfig>().not.toBeNever();
     expectTypeOf<types.Action>().not.toBeNever();
     expectTypeOf<types.DialogueChoice>().not.toBeNever();
     expectTypeOf<types.DialogueNode>().not.toBeNever();
-    expectTypeOf<types.MapCharacter>().not.toBeNever();
-    expectTypeOf<types.LevelData>().not.toBeNever();
+    expectTypeOf<types.LevelConfig>().not.toBeNever();
     expectTypeOf<types.Rectangle>().not.toBeNever();
   });
 });

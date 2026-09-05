@@ -1,7 +1,5 @@
 {
   "id": "daisy",
-  "name": "Daisy",
-  "sprite": "daisy",
-  "scale": 4,
-  "displayName": "Daisy"
+  "displayName": "Daisy",
+  "scale": 4
 }

@@ -1,30 +1,6 @@
 {
   "id": "level1",
-  "width": 99,
-  "height": 42,
   "background": "/assets/levels/level1.webp",
-  "characters": [
-    {
-      "id": "daisy",
-      "position": {
-        "x": 2670,
-        "y": 1227
-      },
-      "interactable": true
-    },
-    {
-      "id": "goon",
-      "position": {
-        "x": 1188,
-        "y": 2305
-      },
-      "interactable": true
-    }
-  ],
-  "playerStart": {
-    "x": 2134,
-    "y": 1391
-  },
   "collisions": [
     {
       "x": 534,

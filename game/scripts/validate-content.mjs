@@ -170,27 +170,24 @@ for (const file of listJsonFiles(CHARACTERS_DIR)) {
     }
   }
 
-  // Check (e): required fields id + name.
+  // Check (e): required ActorConfig fields id + displayName.
   const missing = [];
   if (typeof id !== "string" || id.length === 0) {
     missing.push("id");
   }
-  if (typeof data.name !== "string" || data.name.length === 0) {
-    missing.push("name");
+  if (typeof data.displayName !== "string" || data.displayName.length === 0) {
+    missing.push("displayName");
   }
   if (missing.length > 0) {
     error(`${label} — missing required field(s): ${missing.join(", ")}`);
     continue;
   }
-  ok(`${label} — parses; required fields id + name present (id "${id}")`);
+  ok(
+    `${label} — parses; required fields id + displayName present ` +
+      `(id "${id}")`,
+  );
 
-  // Check (d): v1 sprite field is a texture alias, not a file path — log only.
-  if (typeof data.sprite === "string" && data.sprite.length > 0) {
-    ok(`${label} — v1 sprite field "${data.sprite}" logged (not a path; ` +
-      `actor assets below follow the id-based convention)`);
-  }
-
-  // Check (d): actor assets exist by convention (frames + portrait).
+  // Check (c): actor assets exist by convention (frames + portrait).
   for (const state of ["idle", "walk"]) {
     checkAssetExists(label, frameSheetFor(id, state));
   }
@@ -245,37 +242,15 @@ for (const file of listJsonFiles(LEVELS_DIR)) {
   }
   ok(`${label} — parses; level id "${id}"`);
 
-  // Schema detection: v2 = LevelConfig (player + actors); v1 = legacy
-  // LevelData shape (characters + playerStart).
+  // Schema: every level is a v2 LevelConfig (player + actors); the legacy v1
+  // shape was removed in Phase 8.
   const isV2 = isRecord(data.player) && Array.isArray(data.actors);
-  const isV1 =
-    !isV2 && Array.isArray(data.characters) && hasOwn(data, "playerStart");
-
-  if (isV1) {
-    // Check (c): v1 schema — report as migration pending; never fail.
+  if (!isV2) {
     warn(
-      `${label} — v1 schema (characters + playerStart): ` +
-        "migration pending (Phase 3)",
+      `${label} — unrecognized level schema ` +
+        '(expected v2 "player" + "actors")',
     );
-    for (const character of data.characters) {
-      const refId = isRecord(character) ? character.id : undefined;
-      if (typeof refId !== "string" || refId.length === 0) {
-        error(`${label} — v1 characters[] entry missing "id"`);
-        continue;
-      }
-      if (characterIds.has(refId)) {
-        ok(
-          `${label} — referenced character "${refId}" resolves to ` +
-            `characters/${refId}.json`,
-        );
-      } else {
-        warn(
-          `${label} — references character "${refId}" but no ` +
-            `characters/${refId}.json exists`,
-        );
-      }
-    }
-  } else if (isV2) {
+  } else {
     // Check (b): schema v2 cross-references + bounds.
     const imageResolution = data.imageResolution;
     if (!isRecord(imageResolution)) {
@@ -406,11 +381,6 @@ for (const file of listJsonFiles(LEVELS_DIR)) {
         checkRect(label, `collisions[${index}]`, rect, imageResolution);
       }
     }
-  } else {
-    warn(
-      `${label} — unrecognized level schema (expected v2 "player"+"actors" ` +
-        "or v1 \"characters\"+\"playerStart\")",
-    );
   }
 
   // Check (d): referenced background asset exists.

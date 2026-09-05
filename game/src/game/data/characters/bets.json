@@ -1,7 +1,5 @@
 {
   "id": "bets",
-  "name": "Bets",
   "displayName": "Bets",
-  "sprite": "bets_sprite",
   "scale": 4
 }

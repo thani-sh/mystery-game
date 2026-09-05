@@ -11,7 +11,6 @@ import { InputSystem } from "../../engine/utils/Input";
 import { resolveActorFrameSheet } from "../../game/data/assetPaths";
 import { characters, lookupLevel } from "../../game/data/content";
 import type {
-  CharacterData,
   DialogueChoice,
   LevelConfig,
   Position,
@@ -25,9 +24,6 @@ import { evaluateZoneEvents } from "../../game/systems/zones";
 import { DialogueBox } from "../ui/DialogueBox";
 
 const TILE_SIZE = 64;
-
-/** Character record entries also carry `displayName` (v2 ActorConfig view). */
-type CharacterEntry = CharacterData & { displayName?: string };
 
 /** Params the SceneManager hands to `init` on a "level" goto. */
 interface LevelInitParams {
@@ -100,10 +96,9 @@ export class LevelScene extends Container implements Scene {
     if (!level) {
       throw new Error(`Unknown level: ${levelId}`);
     }
-    // The ContentIndex still types level files against the v1 LevelData shape
-    // (both key sets exist on disk during the migration), but the screen runs
-    // the v2 LevelConfig surface: level.player + level.actors.
-    this.level = level as unknown as LevelConfig;
+    // lookupLevel returns the schema-v2 LevelConfig (player + actors); the
+    // ContentIndex no longer carries a legacy v1 level shape.
+    this.level = level;
     this.playerPos = { ...this.level.player.start };
     this.input = InputSystem.getInstance();
 
@@ -493,11 +488,9 @@ export class LevelScene extends Container implements Scene {
       return;
     }
 
-    // Speaker name — prefer the record's v2 displayName, falling back to the
-    // v1 `name`, then to the raw speaker key.
-    const speakerInfo = characters[node.speaker] as CharacterEntry | undefined;
-    const speakerName =
-      speakerInfo?.displayName ?? speakerInfo?.name ?? node.speaker;
+    // Speaker name — the character record's displayName (ActorConfig), or the
+    // raw speaker key when no character record exists.
+    const speakerName = characters[node.speaker]?.displayName ?? node.speaker;
 
     // Filter flag-gated choices through the shared GameState, keep the filtered
     // list on the scene so selection indexes always align with what the player

@@ -3,13 +3,6 @@ export interface Position {
   y: number;
 }
 
-export interface CharacterData {
-  id: string;
-  name: string;
-  sprite: string;
-  scale?: number; // visual size multiplier relative to TILE_SIZE. Default: 1
-}
-
 export type Action =
   | { type: "move_character"; characterId: string; target: Position }
   | { type: "move_actor"; actorId: string; target: Position }
@@ -31,25 +24,6 @@ export interface DialogueNode {
   choices?: DialogueChoice[];
 }
 
-export interface MapCharacter {
-  id: string; // references CharacterData.id
-  position: Position;
-  interactable: boolean;
-  dialogueStart?: string; // references root DialogueNode key in dialogues
-}
-
-export interface LevelData {
-  id: string;
-  background: string; // path to the static background image asset
-  scalingFactor?: number;
-  imageResolution: { width: number; height: number };
-  characters: MapCharacter[];
-  playerStart: Position;
-  dialogues?: Record<string, DialogueNode>;
-  scripts?: Record<string, Action[]>;
-  collisions?: Rectangle[];
-}
-
 export interface Rectangle {
   x: number;
   y: number;
@@ -57,7 +31,7 @@ export interface Rectangle {
   h: number;
 }
 
-// --- Schema v2 (content-driven scaling): additive types below ----------------
+// --- Schema v2 (content-driven scaling) -------------------------------------
 
 export interface ActorConfig {
   id: string; // folder name under public/assets/actors
@@ -95,8 +69,8 @@ export interface LevelConfig {
   background: string; // path to the static background image asset
   imageResolution: { width: number; height: number };
   scalingFactor?: number;
-  player: { actorId: string; start: Position }; // was: implicit "bets" + playerStart
-  actors: LevelActor[]; // was: characters[]
+  player: { actorId: string; start: Position };
+  actors: LevelActor[];
   dialogues?: Record<string, DialogueNode>; // kept per-level
   scripts?: Record<string, Action[]>;
   triggers?: Trigger[]; // NEW: region + once + scriptId
