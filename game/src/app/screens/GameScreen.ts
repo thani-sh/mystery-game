@@ -149,10 +149,7 @@ export class GameScreen extends Container {
       // Anchor to bottom-center so the character stands on their tile
       sprite.anchor.set(0.5, 1.0);
       sprite.animationSpeed = 0.1;
-      sprite.position.set(
-        char.position.x * bgScale,
-        char.position.y * bgScale,
-      );
+      sprite.position.set(char.position.x * bgScale, char.position.y * bgScale);
       sprite.zIndex = sprite.y;
       sprite.play();
       this.actorSprites[char.id] = sprite;
@@ -249,9 +246,18 @@ export class GameScreen extends Container {
     }
 
     // Interaction handling - trigger talk if near an NPC
-    if ((this.input.isKeyDown("e") || this.input.isKeyDown("Enter") || this.input.isKeyDown(" ")) && this.interactCooldown <= 0) {
+    if (
+      (this.input.isKeyDown("e") ||
+        this.input.isKeyDown("Enter") ||
+        this.input.isKeyDown(" ")) &&
+      this.interactCooldown <= 0
+    ) {
       const interactRadius = 64; // distance in pixels
-      const char = this.getCharacterNear(this.playerPos.x, this.playerPos.y, interactRadius);
+      const char = this.getCharacterNear(
+        this.playerPos.x,
+        this.playerPos.y,
+        interactRadius,
+      );
       if (char && char.interactable && char.dialogueStart) {
         this.startDialogue(char.dialogueStart);
         this.interactCooldown = 10; // short cooldown
@@ -342,12 +348,12 @@ export class GameScreen extends Container {
     // Check collision with NPCs
     const npcCollisionRadius = 24;
     for (const char of this.levelData.characters) {
-        const dx = char.position.x - x;
-        const dy = char.position.y - y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < npcCollisionRadius) {
-            return false;
-        }
+      const dx = char.position.x - x;
+      const dy = char.position.y - y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < npcCollisionRadius) {
+        return false;
+      }
     }
 
     return true;
@@ -497,9 +503,8 @@ export class GameScreen extends Container {
     const mapHeight = mapHeightInPixels * bgScale;
 
     // Target camera position (center on player)
-    let targetX = screenWidth / 2 - (visualTargetX * bgScale);
-    let targetY =
-      screenHeight / 2 - (visualTargetY * bgScale);
+    let targetX = screenWidth / 2 - visualTargetX * bgScale;
+    let targetY = screenHeight / 2 - visualTargetY * bgScale;
 
     // Clamp camera so it doesn't show outside the map
     if (mapWidth > screenWidth) {
