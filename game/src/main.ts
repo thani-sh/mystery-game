@@ -1,10 +1,13 @@
 import { Application } from "pixi.js";
 import { GameScreen } from "./app/screens/GameScreen";
-import levelData from "./game/data/levels/level1.json";
-import { LevelData } from "./game/data/types";
+import { SceneManager } from "./engine/SceneManager";
 import { InputSystem } from "./engine/utils/Input";
+import { gameConfig, lookupLevel } from "./game/data/content";
 
-const level = levelData as LevelData;
+/** Optional params accepted by the registered "level" scene factory. */
+interface LevelSceneParams {
+  levelId?: string;
+}
 
 (async () => {
   // Initialize input
@@ -19,23 +22,24 @@ const level = levelData as LevelData;
   // Append the application canvas to the document body
   document.getElementById("pixi-container")!.appendChild(app.canvas);
 
-  // Initialize Game Screen
-  const gameScreen = new GameScreen(level);
-  await gameScreen.init();
+  // The scene framework owns the ticker pump and window-resize wiring now.
+  const scenes = new SceneManager(app);
+  scenes.start();
 
-  // Initial resize
-  gameScreen.resize(app.screen.width, app.screen.height);
-
-  // Add the game screen to the stage
-  app.stage.addChild(gameScreen);
-
-  // Listen for animate update
-  app.ticker.add((ticker) => {
-    gameScreen.update(ticker.deltaTime);
+  scenes.register("level", (params) => {
+    const levelId =
+      (params as LevelSceneParams | undefined)?.levelId ??
+      gameConfig.startLevel;
+    const level = lookupLevel(levelId);
+    if (!level) {
+      throw new Error(`Unknown level: ${levelId}`);
+    }
+    return new GameScreen(level);
   });
 
-  // Handle window resize
-  window.addEventListener("resize", () => {
-    gameScreen.resize(window.innerWidth, window.innerHeight);
+  // Boot the configured start scene (gameConfig.startScene === "level") on
+  // the configured start level — identical boot to before this refactor.
+  await scenes.goto(gameConfig.startScene, {
+    levelId: gameConfig.startLevel,
   });
 })();
