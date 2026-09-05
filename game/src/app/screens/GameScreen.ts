@@ -6,26 +6,11 @@ import {
   AnimatedSprite,
   Sprite,
 } from "pixi.js";
-import {
-  LevelData,
-  Position,
-  CharacterData,
-  Action,
-} from "../../game/data/types";
+import { LevelData, Position, Action } from "../../game/data/types";
 import { InputSystem } from "../../engine/utils/Input";
+import { characters } from "../../game/data/content";
 
 const TILE_SIZE = 64;
-
-// Load all characters dynamically
-const characterFiles = import.meta.glob("../../game/data/characters/*.json", {
-  eager: true,
-});
-const characters: Record<string, CharacterData> = {};
-for (const path in characterFiles) {
-  const file = characterFiles[path] as Record<string, unknown>;
-  const data = (file.default || file) as CharacterData;
-  characters[data.id] = data;
-}
 
 export class GameScreen extends Container {
   private levelData: LevelData;

@@ -1,6 +1,7 @@
 {
   "id": "goon",
   "name": "Mr. Goon",
+  "displayName": "Mr. Goon",
   "sprite": "goon_sprite",
   "scale": 6
 }
