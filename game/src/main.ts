@@ -1,8 +1,8 @@
 import { Application } from "pixi.js";
-import { GameScreen } from "./app/screens/GameScreen";
+import { LevelScene } from "./app/screens/LevelScene";
 import { SceneManager } from "./engine/SceneManager";
 import { InputSystem } from "./engine/utils/Input";
-import { gameConfig, lookupLevel } from "./game/data/content";
+import { gameConfig } from "./game/data/content";
 
 /** Optional params accepted by the registered "level" scene factory. */
 interface LevelSceneParams {
@@ -30,11 +30,9 @@ interface LevelSceneParams {
     const levelId =
       (params as LevelSceneParams | undefined)?.levelId ??
       gameConfig.startLevel;
-    const level = lookupLevel(levelId);
-    if (!level) {
-      throw new Error(`Unknown level: ${levelId}`);
-    }
-    return new GameScreen(level);
+    // LevelScene resolves the level config itself through the ContentIndex
+    // (lookupLevel) and throws "Unknown level: <id>" for unknown ids.
+    return new LevelScene(levelId);
   });
 
   // Boot the configured start scene (gameConfig.startScene === "level") on

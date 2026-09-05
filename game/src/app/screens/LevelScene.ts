@@ -1,19 +1,39 @@
 import {
+  AnimatedSprite,
+  Assets,
   Container,
   Graphics,
-  Text,
-  Assets,
-  AnimatedSprite,
   Sprite,
+  Text,
 } from "pixi.js";
-import { LevelData, Position, Action } from "../../game/data/types";
+import type { Scene } from "../../engine/types";
 import { InputSystem } from "../../engine/utils/Input";
-import { characters } from "../../game/data/content";
+import { resolveActorFrameSheet } from "../../game/data/assetPaths";
+import { characters, lookupLevel } from "../../game/data/content";
+import type {
+  Action,
+  CharacterData,
+  LevelConfig,
+  Position,
+} from "../../game/data/types";
+import { preloadLevel } from "../../game/systems/AssetLoader";
 
 const TILE_SIZE = 64;
 
-export class GameScreen extends Container {
-  private levelData: LevelData;
+/** Character record entries also carry `displayName` (v2 ActorConfig view). */
+type CharacterEntry = CharacterData & { displayName?: string };
+
+/**
+ * Schema-v2 level screen: constructed from a level *id*, resolves its
+ * LevelConfig through the ContentIndex and drives the player/NPCs from
+ * `level.player` + `level.actors`. Asset loading is delegated to
+ * preloadLevel (derived from the config) — no hardcoded actor loads.
+ *
+ * Movement / collision / camera / dialogue / choice / action logic is
+ * behaviorally identical to the v1 GameScreen it replaces.
+ */
+export class LevelScene extends Container implements Scene {
+  private level: LevelConfig;
   private playerPos: Position;
   private mapContainer: Container;
   private actorsContainer: Container;
@@ -36,10 +56,17 @@ export class GameScreen extends Container {
   // Throttle interactions
   private interactCooldown: number = 0;
 
-  constructor(levelData: LevelData) {
+  constructor(levelId: string) {
     super();
-    this.levelData = levelData;
-    this.playerPos = { ...levelData.playerStart };
+    const level = lookupLevel(levelId);
+    if (!level) {
+      throw new Error(`Unknown level: ${levelId}`);
+    }
+    // The ContentIndex still types level files against the v1 LevelData shape
+    // (both key sets exist on disk during the migration), but the screen runs
+    // the v2 LevelConfig surface: level.player + level.actors.
+    this.level = level as unknown as LevelConfig;
+    this.playerPos = { ...this.level.player.start };
     this.input = InputSystem.getInstance();
 
     this.mapContainer = new Container();
@@ -64,46 +91,34 @@ export class GameScreen extends Container {
   }
 
   public async init() {
-    // Load background image
-    await Assets.load(this.levelData.background);
-
-    // Wait for assets to load before initializing actors
-    await this.loadAndInitActors();
+    // Preload every asset this level needs (background + player/NPC frame
+    // sheets). Missing assets warn and continue, never killing the level.
+    await preloadLevel(this.level);
 
     this.initMap();
+    this.initActors();
     this.initUI();
   }
 
-  private async loadAndInitActors() {
-    // Load Bets (Player)
-    await Assets.load("/assets/actors/bets/frames/idle.json");
-    await Assets.load("/assets/actors/bets/frames/walk.json");
-
-    // Load Goon
-    await Assets.load("/assets/actors/goon/frames/idle.json");
-    await Assets.load("/assets/actors/goon/frames/walk.json");
-
-    this.initActors();
-  }
-
   private initMap() {
-    const texture = Assets.get(this.levelData.background);
+    const texture = Assets.get(this.level.background);
     const bg = new Sprite(texture);
-    const bgScale = this.levelData.scalingFactor ?? 1;
+    const bgScale = this.level.scalingFactor ?? 1;
     // Scale background
     bg.scale.set(bgScale);
     this.mapContainer.addChild(bg);
   }
 
   private initActors() {
-    const bgScale = this.levelData.scalingFactor ?? 1;
+    const bgScale = this.level.scalingFactor ?? 1;
+    const playerActorId = this.level.player.actorId;
 
     // Player
     const playerFrames = Assets.cache.get(
-      "/assets/actors/bets/frames/idle.json",
+      resolveActorFrameSheet(playerActorId, "idle"),
     ).animations;
     this.playerSprite = new AnimatedSprite(playerFrames.down);
-    const playerScale = characters["bets"]?.scale ?? 1;
+    const playerScale = characters[playerActorId]?.scale ?? 1;
     this.playerSprite.width = TILE_SIZE * playerScale;
     this.playerSprite.height = TILE_SIZE * playerScale;
     // Anchor to bottom-center so the character stands on their tile
@@ -117,27 +132,31 @@ export class GameScreen extends Container {
     this.playerSprite.play();
     this.actorsContainer.addChild(this.playerSprite);
 
-    // NPCs
-    for (const char of this.levelData.characters) {
+    // NPCs — iterate level.actors; the sprite source (frames folder + scale)
+    // comes from actor.actorId, the instance bookkeeping key from actor.id.
+    for (const actor of this.level.actors) {
       // Set NPCs to look down and face idle by default
       const frames =
-        Assets.cache.get(`/assets/actors/${char.id}/frames/idle.json`)
+        Assets.cache.get(resolveActorFrameSheet(actor.actorId, "idle"))
           ?.animations?.down || []; // Fallback if missing
 
       // Avoid crash if assets missing
       if (!frames || frames.length === 0) continue;
 
       const sprite = new AnimatedSprite(frames);
-      const charScale = characters[char.id]?.scale ?? 1;
-      sprite.width = TILE_SIZE * charScale;
-      sprite.height = TILE_SIZE * charScale;
+      const actorScale = characters[actor.actorId]?.scale ?? 1;
+      sprite.width = TILE_SIZE * actorScale;
+      sprite.height = TILE_SIZE * actorScale;
       // Anchor to bottom-center so the character stands on their tile
       sprite.anchor.set(0.5, 1.0);
       sprite.animationSpeed = 0.1;
-      sprite.position.set(char.position.x * bgScale, char.position.y * bgScale);
+      sprite.position.set(
+        actor.position.x * bgScale,
+        actor.position.y * bgScale,
+      );
       sprite.zIndex = sprite.y;
       sprite.play();
-      this.actorSprites[char.id] = sprite;
+      this.actorSprites[actor.id] = sprite;
       this.actorsContainer.addChild(sprite);
     }
 
@@ -151,8 +170,7 @@ export class GameScreen extends Container {
     state: "idle" | "walk",
     direction: "down" | "up" | "left" | "right",
   ) {
-    const sheetKey = `/assets/actors/${actorId}/frames/${state}.json`;
-    const sheet = Assets.cache.get(sheetKey);
+    const sheet = Assets.cache.get(resolveActorFrameSheet(actorId, state));
     if (!sheet || !sheet.animations) return;
 
     const frames = sheet.animations[direction];
@@ -191,7 +209,7 @@ export class GameScreen extends Container {
         this.playerState = "idle";
         this.setActorAnimation(
           this.playerSprite,
-          "bets",
+          this.level.player.actorId,
           this.playerState,
           this.playerDirection,
         );
@@ -205,7 +223,7 @@ export class GameScreen extends Container {
 
   private handleMovement(delta: number) {
     const speed = 4 * delta;
-    const bgScale = this.levelData.scalingFactor ?? 1;
+    const bgScale = this.level.scalingFactor ?? 1;
 
     let dx = 0;
     let dy = 0;
@@ -238,13 +256,13 @@ export class GameScreen extends Container {
       this.interactCooldown <= 0
     ) {
       const interactRadius = 64; // distance in pixels
-      const char = this.getCharacterNear(
+      const actor = this.getActorNear(
         this.playerPos.x,
         this.playerPos.y,
         interactRadius,
       );
-      if (char && char.interactable && char.dialogueStart) {
-        this.startDialogue(char.dialogueStart);
+      if (actor && actor.interactable && actor.dialogueStart) {
+        this.startDialogue(actor.dialogueStart);
         this.interactCooldown = 10; // short cooldown
         return;
       }
@@ -271,7 +289,7 @@ export class GameScreen extends Container {
       this.playerState = "walk";
       this.setActorAnimation(
         this.playerSprite,
-        "bets",
+        this.level.player.actorId,
         this.playerState,
         this.playerDirection,
       );
@@ -287,7 +305,7 @@ export class GameScreen extends Container {
         this.playerState = "idle";
         this.setActorAnimation(
           this.playerSprite,
-          "bets",
+          this.level.player.actorId,
           this.playerState,
           this.playerDirection,
         );
@@ -304,8 +322,8 @@ export class GameScreen extends Container {
     const py = y;
 
     // Get true width/height from imageResolution
-    const mapWidthInPixels = this.levelData.imageResolution.width;
-    const mapHeightInPixels = this.levelData.imageResolution.height;
+    const mapWidthInPixels = this.level.imageResolution.width;
+    const mapHeightInPixels = this.level.imageResolution.height;
 
     if (
       px - rx < 0 ||
@@ -316,8 +334,8 @@ export class GameScreen extends Container {
       return false;
     }
 
-    if (this.levelData.collisions) {
-      for (const rect of this.levelData.collisions) {
+    if (this.level.collisions) {
+      for (const rect of this.level.collisions) {
         // Simple AABB overlap check with the player's foot boundary
         if (
           px + rx > rect.x &&
@@ -332,9 +350,9 @@ export class GameScreen extends Container {
 
     // Check collision with NPCs
     const npcCollisionRadius = 24;
-    for (const char of this.levelData.characters) {
-      const dx = char.position.x - x;
-      const dy = char.position.y - y;
+    for (const actor of this.level.actors) {
+      const dx = actor.position.x - x;
+      const dy = actor.position.y - y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < npcCollisionRadius) {
         return false;
@@ -344,26 +362,26 @@ export class GameScreen extends Container {
     return true;
   }
 
-  private getCharacterNear(x: number, y: number, radius: number) {
-    let closestChar = null;
+  private getActorNear(x: number, y: number, radius: number) {
+    let closestActor = null;
     let closestDist = radius;
 
-    for (const char of this.levelData.characters) {
-      const dx = char.position.x - x;
-      const dy = char.position.y - y;
+    for (const actor of this.level.actors) {
+      const dx = actor.position.x - x;
+      const dy = actor.position.y - y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist < closestDist) {
         closestDist = dist;
-        closestChar = char;
+        closestActor = actor;
       }
     }
 
-    return closestChar;
+    return closestActor;
   }
 
   private startDialogue(dialogueStart: string) {
-    if (this.levelData.dialogues && this.levelData.dialogues[dialogueStart]) {
+    if (this.level.dialogues && this.level.dialogues[dialogueStart]) {
       this.currentDialogueNodeId = dialogueStart;
       this.dialogueBox.visible = true;
       this.renderDialogueNode();
@@ -371,16 +389,19 @@ export class GameScreen extends Container {
   }
 
   private renderDialogueNode() {
-    if (!this.currentDialogueNodeId || !this.levelData.dialogues) return;
+    if (!this.currentDialogueNodeId || !this.level.dialogues) return;
 
-    const node = this.levelData.dialogues[this.currentDialogueNodeId];
+    const node = this.level.dialogues[this.currentDialogueNodeId];
     if (!node) {
       this.endDialogue();
       return;
     }
 
-    // Set speaker name + text
-    const speakerName = characters[node.speaker]?.name || node.speaker;
+    // Set speaker name + text — prefer the record's v2 displayName, falling
+    // back to the v1 `name`, then to the raw speaker key.
+    const speakerInfo = characters[node.speaker] as CharacterEntry | undefined;
+    const speakerName =
+      speakerInfo?.displayName ?? speakerInfo?.name ?? node.speaker;
     this.dialogueText.text = `${speakerName}: ${node.text}`;
 
     // Clear old choices
@@ -410,8 +431,8 @@ export class GameScreen extends Container {
   }
 
   private handleDialogueInput() {
-    if (!this.currentDialogueNodeId || !this.levelData.dialogues) return;
-    const node = this.levelData.dialogues[this.currentDialogueNodeId];
+    if (!this.currentDialogueNodeId || !this.level.dialogues) return;
+    const node = this.level.dialogues[this.currentDialogueNodeId];
     if (!node) return;
 
     const choices =
@@ -427,8 +448,8 @@ export class GameScreen extends Container {
           this.executeAction(choice.action);
         }
 
-        if (choice.scriptId && this.levelData.scripts) {
-          const script = this.levelData.scripts[choice.scriptId];
+        if (choice.scriptId && this.level.scripts) {
+          const script = this.level.scripts[choice.scriptId];
           if (script) {
             script.forEach((action) => this.executeAction(action));
           }
@@ -450,19 +471,17 @@ export class GameScreen extends Container {
 
   private executeAction(action: Action) {
     if (action.type === "move_character") {
-      const char = this.levelData.characters.find(
-        (c) => c.id === action.characterId,
-      );
-      if (char) {
-        char.position = { ...action.target };
+      const actor = this.level.actors.find((a) => a.id === action.characterId);
+      if (actor) {
+        actor.position = { ...action.target };
         // update sprite
-        if (this.actorSprites[char.id]) {
-          const bgScale = this.levelData.scalingFactor ?? 1;
-          this.actorSprites[char.id].position.set(
-            char.position.x * bgScale,
-            char.position.y * bgScale,
+        if (this.actorSprites[actor.id]) {
+          const bgScale = this.level.scalingFactor ?? 1;
+          this.actorSprites[actor.id].position.set(
+            actor.position.x * bgScale,
+            actor.position.y * bgScale,
           );
-          this.actorSprites[char.id].zIndex = this.actorSprites[char.id].y;
+          this.actorSprites[actor.id].zIndex = this.actorSprites[actor.id].y;
         }
       }
     }
@@ -477,12 +496,12 @@ export class GameScreen extends Container {
     visualTargetX: number = this.playerPos.x,
     visualTargetY: number = this.playerPos.y,
   ) {
-    const bgScale = this.levelData.scalingFactor ?? 1;
+    const bgScale = this.level.scalingFactor ?? 1;
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
 
-    const mapWidthInPixels = this.levelData.imageResolution.width;
-    const mapHeightInPixels = this.levelData.imageResolution.height;
+    const mapWidthInPixels = this.level.imageResolution.width;
+    const mapHeightInPixels = this.level.imageResolution.height;
 
     const mapWidth = mapWidthInPixels * bgScale;
     const mapHeight = mapHeightInPixels * bgScale;
