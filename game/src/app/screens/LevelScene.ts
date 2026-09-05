@@ -1,7 +1,5 @@
 import {
   Container,
-  Graphics,
-  Text,
   Assets,
   AnimatedSprite,
   Sprite,
@@ -13,17 +11,28 @@ import { InputSystem } from "../../engine/utils/Input";
 import { resolveActorFrameSheet } from "../../game/data/assetPaths";
 import { characters, lookupLevel } from "../../game/data/content";
 import type {
-  Action,
   CharacterData,
+  DialogueChoice,
   LevelConfig,
   Position,
 } from "../../game/data/types";
+import { GameState } from "../../game/state/GameState";
+import { runActions } from "../../game/systems/ActionRunner";
+import type { WorldHooks } from "../../game/systems/ActionRunner";
 import { preloadLevel } from "../../game/systems/AssetLoader";
+import { visibleChoices } from "../../game/systems/visibleChoices";
+import { DialogueBox } from "../ui/DialogueBox";
 
 const TILE_SIZE = 64;
 
 /** Character record entries also carry `displayName` (v2 ActorConfig view). */
 type CharacterEntry = CharacterData & { displayName?: string };
+
+/** Params the SceneManager hands to `init` on a "level" goto. */
+interface LevelInitParams {
+  levelId?: string;
+  spawn?: Position;
+}
 
 /**
  * Schema-v2 level screen: constructed from a level *id*, resolves its
@@ -31,8 +40,14 @@ type CharacterEntry = CharacterData & { displayName?: string };
  * `level.player` + `level.actors`. Asset loading is delegated to
  * preloadLevel (derived from the config) — no hardcoded actor loads.
  *
- * Movement / collision / camera / dialogue / choice / action logic is
- * behaviorally identical to the v1 GameScreen it replaces.
+ * Dialogue UI lives in the presentational DialogueBox component; this scene
+ * owns the game logic around it: resolving speaker display names, filtering
+ * flag-gated choices (visibleChoices), feeding keyboard input to the visible
+ * rows, and executing choice actions through the pure ActionRunner against
+ * the scene's WorldHooks (actor moves, GameState flags, level navigation).
+ *
+ * Movement / collision / camera / gameplay are behaviorally identical to the
+ * v1 GameScreen this screen replaces.
  */
 export class LevelScene extends Container implements Scene {
   private level: LevelConfig;
@@ -41,11 +56,15 @@ export class LevelScene extends Container implements Scene {
   private actorsContainer: Container;
   private uiContainer: Container;
 
-  private dialogueBox: Container;
-  private dialogueText: Text;
-  private choiceTexts: Text[] = [];
+  /** Shared across level transitions (flags persist when jumping levels). */
+  private readonly gameState: GameState;
+  private readonly onLoadLevel?: (levelId: string, spawn?: Position) => void;
+  private readonly hooks: WorldHooks;
 
+  private dialogue!: DialogueBox;
   private currentDialogueNodeId: string | null = null;
+  /** The flag-filtered choices of the node being shown (selection indexes align with the DialogueBox rows). */
+  private currentDialogueChoices: DialogueChoice[] = [];
 
   private actorSprites: Record<string, AnimatedSprite> = {};
   private playerSprite!: AnimatedSprite;
@@ -58,7 +77,13 @@ export class LevelScene extends Container implements Scene {
   // Throttle interactions
   private interactCooldown: number = 0;
 
-  constructor(levelId: string) {
+  constructor(
+    levelId: string,
+    opts: {
+      gameState?: GameState;
+      onLoadLevel?: (levelId: string, spawn?: Position) => void;
+    } = {},
+  ) {
     super();
     const level = lookupLevel(levelId);
     if (!level) {
@@ -71,6 +96,16 @@ export class LevelScene extends Container implements Scene {
     this.playerPos = { ...this.level.player.start };
     this.input = InputSystem.getInstance();
 
+    this.gameState = opts.gameState ?? GameState.create();
+    this.onLoadLevel = opts.onLoadLevel;
+    this.hooks = {
+      moveActor: (actorId, target) => this.moveActor(actorId, target),
+      setFlag: (flag) => this.gameState.setFlag(flag),
+      clearFlag: (flag) => this.gameState.clearFlag(flag),
+      loadLevel: (levelId, spawn) => this.onLoadLevel?.(levelId, spawn),
+      message: (text) => console.log("[dialogue message]", text),
+    };
+
     this.mapContainer = new Container();
     this.actorsContainer = new Container();
     this.actorsContainer.sortableChildren = true; // enable Y-sorting
@@ -80,22 +115,20 @@ export class LevelScene extends Container implements Scene {
     this.addChild(this.actorsContainer);
     this.addChild(this.uiContainer);
 
-    this.dialogueBox = new Container();
-    this.dialogueText = new Text({
-      text: "",
-      style: {
-        fontSize: 24,
-        fill: 0xffffff,
-        wordWrap: true,
-        wordWrapWidth: 700,
-      },
-    });
+    this.dialogue = new DialogueBox();
   }
 
-  public async init() {
+  public async init(params?: unknown) {
     // Preload every asset this level needs (background + player/NPC frame
     // sheets). Missing assets warn and continue, never killing the level.
     await preloadLevel(this.level);
+
+    // A goto may carry a spawn point (level exits / load_level actions);
+    // default to the level's configured player start otherwise.
+    const spawn = (params as LevelInitParams | undefined)?.spawn;
+    if (spawn) {
+      this.playerPos = { ...spawn };
+    }
 
     this.initMap();
     this.initActors();
@@ -198,22 +231,10 @@ export class LevelScene extends Container implements Scene {
   }
 
   private initUI() {
-    // Dialogue background
-    const bg = new Graphics();
-    bg.rect(0, 0, 800, 200).fill({ color: 0x000000, alpha: 0.8 });
-    this.dialogueBox.addChild(bg);
-
-    this.dialogueText.position.set(20, 20);
-    this.dialogueBox.addChild(this.dialogueText);
-
-    // Position at bottom of screen (assuming 800x600 for now)
-    this.dialogueBox.position.set(
-      (window.innerWidth - 800) / 2,
-      window.innerHeight - 250,
-    );
-    this.dialogueBox.visible = false;
-
-    this.uiContainer.addChild(this.dialogueBox);
+    // The DialogueBox owns the dialogue panel + texts; add it to the UI layer
+    // and let resize() keep it bottom-center as the viewport changes.
+    this.uiContainer.addChild(this.dialogue);
+    this.dialogue.resize(window.innerWidth, window.innerHeight);
   }
 
   public update(delta: number) {
@@ -400,8 +421,7 @@ export class LevelScene extends Container implements Scene {
   private startDialogue(dialogueStart: string) {
     if (this.level.dialogues && this.level.dialogues[dialogueStart]) {
       this.currentDialogueNodeId = dialogueStart;
-      this.dialogueBox.visible = true;
-      this.renderDialogueNode();
+      this.renderDialogueNode(); // DialogueBox.show() makes itself visible
     }
   }
 
@@ -414,99 +434,95 @@ export class LevelScene extends Container implements Scene {
       return;
     }
 
-    // Set speaker name + text — prefer the record's v2 displayName, falling
-    // back to the v1 `name`, then to the raw speaker key.
+    // Speaker name — prefer the record's v2 displayName, falling back to the
+    // v1 `name`, then to the raw speaker key.
     const speakerInfo = characters[node.speaker] as CharacterEntry | undefined;
     const speakerName =
       speakerInfo?.displayName ?? speakerInfo?.name ?? node.speaker;
-    this.dialogueText.text = `${speakerName}: ${node.text}`;
 
-    // Clear old choices
-    this.choiceTexts.forEach((t) => t.destroy());
-    this.choiceTexts = [];
+    // Filter flag-gated choices through the shared GameState, keep the filtered
+    // list on the scene so selection indexes always align with what the player
+    // actually sees (never the raw, possibly larger, node.choices).
+    const choices = visibleChoices(node.choices, (flag) =>
+      this.gameState.hasFlag(flag),
+    );
+    this.currentDialogueChoices = choices;
 
-    // Render new choices
-    if (node.choices && node.choices.length > 0) {
-      node.choices.forEach((choice, idx) => {
-        const choiceText = new Text({
-          text: `${idx + 1}. ${choice.text}`,
-          style: { fontSize: 20, fill: 0xaaaaaa },
-        });
-        choiceText.position.set(40, 80 + idx * 30);
-        this.dialogueBox.addChild(choiceText);
-        this.choiceTexts.push(choiceText);
-      });
-    } else {
-      const choiceText = new Text({
-        text: `1. Continue`,
-        style: { fontSize: 20, fill: 0xaaaaaa },
-      });
-      choiceText.position.set(40, 80);
-      this.dialogueBox.addChild(choiceText);
-      this.choiceTexts.push(choiceText);
-    }
+    this.dialogue.show(
+      speakerName,
+      node.text,
+      choices.length > 0 ? choices.map((c) => c.text) : null,
+    );
   }
 
   private handleDialogueInput() {
-    if (!this.currentDialogueNodeId || !this.level.dialogues) return;
-    const node = this.level.dialogues[this.currentDialogueNodeId];
-    if (!node) return;
+    if (!this.currentDialogueNodeId) return;
 
-    const choices =
-      node.choices && node.choices.length > 0
-        ? node.choices
-        : [{ text: "Continue" }];
-
-    for (let i = 0; i < choices.length; i++) {
+    const count = this.dialogue.getChoiceCount();
+    for (let i = 0; i < count; i++) {
       if (this.input.isKeyDown((i + 1).toString())) {
-        const choice = choices[i];
-
-        if (choice.action) {
-          this.executeAction(choice.action);
-        }
-
-        if (choice.scriptId && this.level.scripts) {
-          const script = this.level.scripts[choice.scriptId];
-          if (script) {
-            script.forEach((action) => this.executeAction(action));
-          }
-        }
-
-        if (choice.next) {
-          this.currentDialogueNodeId = choice.next;
-          this.renderDialogueNode();
-          this.input.clear(); // clear keys so we don't double trigger
-          return;
-        } else {
-          this.endDialogue();
-          this.input.clear();
-          return;
-        }
+        this.selectChoice(this.currentDialogueChoices[i]);
+        this.input.clear(); // clear keys so we don't double trigger
+        return;
       }
     }
   }
 
-  private executeAction(action: Action) {
-    if (action.type === "move_character") {
-      const actor = this.level.actors.find((a) => a.id === action.characterId);
-      if (actor) {
-        actor.position = { ...action.target };
-        // update sprite
-        if (this.actorSprites[actor.id]) {
-          const bgScale = this.level.scalingFactor ?? 1;
-          this.actorSprites[actor.id].position.set(
-            actor.position.x * bgScale,
-            actor.position.y * bgScale,
-          );
-          this.actorSprites[actor.id].zIndex = this.actorSprites[actor.id].y;
-        }
+  /**
+   * Apply one chosen entry. A plain "Continue" row has no backing
+   * DialogueChoice (undefined) and simply ends the dialogue; real choices run
+   * their `action` and/or `scriptId` effects (via the pure ActionRunner), then
+   * navigate to `next` or end.
+   */
+  private selectChoice(choice: DialogueChoice | undefined) {
+    if (!choice) {
+      this.endDialogue();
+      return;
+    }
+
+    if (choice.action) {
+      runActions([choice.action], this.hooks);
+    }
+
+    if (choice.scriptId && this.level.scripts) {
+      const script = this.level.scripts[choice.scriptId];
+      if (script) {
+        runActions(script, this.hooks);
       }
+    }
+
+    if (choice.next) {
+      this.currentDialogueNodeId = choice.next;
+      this.renderDialogueNode();
+    } else {
+      this.endDialogue();
+    }
+  }
+
+  /**
+   * WorldHooks.moveActor implementation — the old inline action executor body:
+   * find the actor instance by level id, move its data position and slide the
+   * sprite to match (scaling-aware).
+   */
+  private moveActor(actorId: string, target: Position) {
+    const actor = this.level.actors.find((a) => a.id === actorId);
+    if (!actor) return;
+
+    actor.position = { ...target };
+    // update sprite
+    if (this.actorSprites[actor.id]) {
+      const bgScale = this.level.scalingFactor ?? 1;
+      this.actorSprites[actor.id].position.set(
+        actor.position.x * bgScale,
+        actor.position.y * bgScale,
+      );
+      this.actorSprites[actor.id].zIndex = this.actorSprites[actor.id].y;
     }
   }
 
   private endDialogue() {
     this.currentDialogueNodeId = null;
-    this.dialogueBox.visible = false;
+    this.dialogue.clear();
   }
 
   private updateCamera(
@@ -546,7 +562,7 @@ export class LevelScene extends Container implements Scene {
 
   // Handle window resize
   public resize(width: number, height: number) {
-    this.dialogueBox.position.set((width - 800) / 2, height - 250);
+    this.dialogue.resize(width, height);
     this.updateCamera();
   }
 }
