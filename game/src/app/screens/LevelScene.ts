@@ -1,10 +1,12 @@
 import {
-  AnimatedSprite,
-  Assets,
   Container,
   Graphics,
-  Sprite,
   Text,
+  Assets,
+  AnimatedSprite,
+  Sprite,
+  Texture,
+  SCALE_MODES,
 } from "pixi.js";
 import type { Scene } from "../../engine/types";
 import { InputSystem } from "../../engine/utils/Input";
@@ -118,6 +120,7 @@ export class LevelScene extends Container implements Scene {
       resolveActorFrameSheet(playerActorId, "idle"),
     ).animations;
     this.playerSprite = new AnimatedSprite(playerFrames.down);
+    this.setPixelated(this.playerSprite);
     const playerScale = characters[playerActorId]?.scale ?? 1;
     this.playerSprite.width = TILE_SIZE * playerScale;
     this.playerSprite.height = TILE_SIZE * playerScale;
@@ -144,6 +147,7 @@ export class LevelScene extends Container implements Scene {
       if (!frames || frames.length === 0) continue;
 
       const sprite = new AnimatedSprite(frames);
+      this.setPixelated(sprite);
       const actorScale = characters[actor.actorId]?.scale ?? 1;
       sprite.width = TILE_SIZE * actorScale;
       sprite.height = TILE_SIZE * actorScale;
@@ -164,6 +168,18 @@ export class LevelScene extends Container implements Scene {
     this.updateCamera();
   }
 
+  /**
+   * Pixel-art sprites must sample with NEAREST filtering — the default LINEAR
+   * bleeds transparent edge texels at fractional screen positions, which shows
+   * up as a light fringe/shimmer around characters.
+   */
+  private setPixelated(sprite: AnimatedSprite) {
+    for (const entry of sprite.textures) {
+      const tex = entry instanceof Texture ? entry : entry.texture;
+      tex.baseTexture.scaleMode = SCALE_MODES.NEAREST;
+    }
+  }
+
   private setActorAnimation(
     sprite: AnimatedSprite,
     actorId: string,
@@ -176,6 +192,7 @@ export class LevelScene extends Container implements Scene {
     const frames = sheet.animations[direction];
     if (frames && sprite.textures !== frames) {
       sprite.textures = frames;
+      this.setPixelated(sprite);
       sprite.play();
     }
   }
