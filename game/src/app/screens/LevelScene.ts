@@ -21,11 +21,7 @@ import { runActions } from "../../game/systems/ActionRunner";
 import type { WorldHooks } from "../../game/systems/ActionRunner";
 import { preloadLevel } from "../../game/systems/AssetLoader";
 import { visibleChoices } from "../../game/systems/visibleChoices";
-import {
-  exitAt,
-  flagNameFor,
-  overlappingTriggers,
-} from "../../game/systems/zones";
+import { evaluateZoneEvents } from "../../game/systems/zones";
 import { DialogueBox } from "../ui/DialogueBox";
 
 const TILE_SIZE = 64;
@@ -387,47 +383,28 @@ export class LevelScene extends Container implements Scene {
    * (async init of the next level) cannot double-fire the transition.
    */
   private checkZoneTransitions(): void {
-    const levelId = this.level.id;
-    const activeTriggers = overlappingTriggers(
+    const { events, exit, nextKeys } = evaluateZoneEvents(
       this.level,
       this.playerPos,
       (flag) => this.gameState.hasFlag(flag),
+      this.prevOverlapZones,
     );
-    const exit = exitAt(this.level, this.playerPos);
 
-    // The zones overlapping the player THIS frame. Trigger keys reuse the
-    // consumption-flag namespace (`trigger:<level>:<id>` via flagNameFor);
-    // exits use an `exit:` prefix so a trigger and an exit never collide in
-    // the same overlap set.
-    const overlapNow = new Set<string>();
-    for (const trigger of activeTriggers) {
-      overlapNow.add(flagNameFor(levelId, trigger.id));
-    }
-    if (exit) {
-      overlapNow.add(`exit:${levelId}:${exit.id}`);
-    }
-
-    // Fire trigger scripts on zone ENTRY only.
-    for (const trigger of activeTriggers) {
-      const key = flagNameFor(levelId, trigger.id);
-      if (this.prevOverlapZones.has(key)) continue; // already inside — not an entry
-
-      const script = this.level.scripts?.[trigger.scriptId] ?? [];
-      runActions(script, this.hooks);
-      if (trigger.once !== false) {
-        this.gameState.setFlag(key);
+    // Fire trigger scripts on zone ENTRY only (enter-edge semantics live in
+    // evaluateZoneEvents: events are triggers not present in prevOverlapZones).
+    for (const event of events) {
+      runActions(event.script, this.hooks);
+      if (event.once) {
+        this.gameState.setFlag(event.key);
       }
     }
 
     // Fire the first exit whose zone the player just entered.
-    if (exit) {
-      const key = `exit:${levelId}:${exit.id}`;
-      if (!this.prevOverlapZones.has(key)) {
-        this.onLoadLevel?.(exit.targetLevel, exit.spawn);
-      }
+    if (exit && !this.prevOverlapZones.has(`exit:${this.level.id}:${exit.id}`)) {
+      this.onLoadLevel?.(exit.targetLevel, exit.spawn);
     }
 
-    this.prevOverlapZones = overlapNow;
+    this.prevOverlapZones = nextKeys;
   }
 
   private canMoveTo(x: number, y: number): boolean {

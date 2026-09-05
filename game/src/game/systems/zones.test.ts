@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LevelExit, Position, Rectangle, Trigger } from "../data/types";
-import { exitAt, flagNameFor, overlappingTriggers, pointInZone } from "./zones";
+import { evaluateZoneEvents, exitAt, flagNameFor, overlappingTriggers, pointInZone } from "./zones";
 
 const rect = (x: number, y: number, w: number, h: number): Rectangle => ({
   x,
@@ -198,5 +198,101 @@ describe("game/systems/zones — exitAt", () => {
     expect(
       exitAt({ exits: [exit("e1", rect(0, 0, 10, 10))] }, at(10, 5)),
     ).toBeUndefined();
+  });
+});
+
+describe("game/systems/zones — evaluateZoneEvents (frame decision)", () => {
+  const level = (over: Partial<Record<string, unknown>> = {}) => ({
+    id: "level1",
+    triggers: [
+      { id: "t_once", zone: rect(0, 0, 10, 10), once: true, scriptId: "s1" },
+      { id: "t_repeat", zone: rect(100, 0, 10, 10), once: false, scriptId: "s2" },
+    ],
+    exits: [{ id: "exit1", zone: rect(200, 0, 10, 10), targetLevel: "level2", spawn: { x: 1, y: 2 } }],
+    scripts: {
+      s1: [{ type: "set_flag", flag: "a" }],
+      s2: [{ type: "clear_flag", flag: "b" }],
+    },
+    ...over,
+  } as Parameters<typeof evaluateZoneEvents>[0]);
+
+  const none = () => false;
+
+  it("nothing overlapping -> no events, no exit, empty nextKeys", () => {
+    const r = evaluateZoneEvents(level(), at(50, 50), none, new Set());
+    expect(r.events).toEqual([]);
+    expect(r.exit).toBeNull();
+    expect(r.nextKeys.size).toBe(0);
+  });
+
+  it("entering a once trigger fires it once and adds its key", () => {
+    const r = evaluateZoneEvents(level(), at(5, 5), none, new Set());
+    expect(r.events).toHaveLength(1);
+    expect(r.events[0].key).toBe("trigger:level1:t_once");
+    expect(r.events[0].once).toBe(true);
+    expect(r.events[0].script).toEqual([{ type: "set_flag", flag: "a" }]);
+    expect(r.nextKeys.has("trigger:level1:t_once")).toBe(true);
+  });
+
+  it("does NOT re-fire a once trigger already inside (key in prevKeys)", () => {
+    const prev = new Set(["trigger:level1:t_once"]);
+    const r = evaluateZoneEvents(level(), at(5, 5), none, prev);
+    expect(r.events).toEqual([]);
+    expect(r.nextKeys.has("trigger:level1:t_once")).toBe(true);
+  });
+
+  it("consumed once trigger (flag set) does not fire even on re-entry", () => {
+    const hasFlag = (f: string) => f === "trigger:level1:t_once";
+    const r = evaluateZoneEvents(level(), at(5, 5), hasFlag, new Set());
+    expect(r.events).toEqual([]);
+  });
+
+  it("repeatable trigger (once:false) re-fires on every re-entry", () => {
+    const first = evaluateZoneEvents(level(), at(105, 5), none, new Set());
+    expect(first.events.map((e) => e.key)).toEqual(["trigger:level1:t_repeat"]);
+    // standing inside: no re-fire
+    const inside = evaluateZoneEvents(
+      level(),
+      at(105, 5),
+      none,
+      first.nextKeys,
+    );
+    expect(inside.events).toEqual([]);
+    // left, then re-entered: fires again
+    const reentry = evaluateZoneEvents(level(), at(105, 5), none, new Set());
+    expect(reentry.events.map((e) => e.key)).toEqual(["trigger:level1:t_repeat"]);
+  });
+
+  it("entering an exit reports it (and its key) once", () => {
+    const r = evaluateZoneEvents(level(), at(205, 5), none, new Set());
+    expect(r.exit?.targetLevel).toBe("level2");
+    expect(r.exit?.spawn).toEqual({ x: 1, y: 2 });
+    expect(r.nextKeys.has("exit:level1:exit1")).toBe(true);
+  });
+
+  it("exit is null once standing inside (prevKeys has the exit key)", () => {
+    const prev = new Set(["exit:level1:exit1"]);
+    const r = evaluateZoneEvents(level(), at(205, 5), none, prev);
+    expect(r.events).toEqual([]);
+    expect(r.exit?.targetLevel).toBe("level2"); // still overlapping
+    expect(r.nextKeys.has("exit:level1:exit1")).toBe(true);
+  });
+
+  it("fires a trigger and an exit simultaneously when both entered", () => {
+    const lvl = {
+      id: "level1",
+      triggers: [{ id: "t_once", zone: rect(0, 0, 300, 300), once: true, scriptId: "s1" }],
+      exits: [{ id: "exit1", zone: rect(200, 0, 10, 10), targetLevel: "level2", spawn: { x: 1, y: 2 } }],
+      scripts: { s1: [{ type: "set_flag", flag: "a" }] },
+    } as Parameters<typeof evaluateZoneEvents>[0];
+    const r = evaluateZoneEvents(lvl, at(205, 5), none, new Set());
+    expect(r.events).toHaveLength(1);
+    expect(r.exit?.targetLevel).toBe("level2");
+  });
+
+  it("missing scriptId resolves to an empty action list (never throws)", () => {
+    const lvl = level({ triggers: [{ id: "t", zone: rect(0, 0, 10, 10), scriptId: "nope" }], scripts: {} });
+    const r = evaluateZoneEvents(lvl, at(5, 5), none, new Set());
+    expect(r.events[0].script).toEqual([]);
   });
 });
